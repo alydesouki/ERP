@@ -914,6 +914,796 @@ export interface SuspendedOrderInput {
   totalAmount?: number;
 }
 
+export interface PurchaseItemInput {
+  variantId: string;
+  /** @minimum 1 */
+  quantity: number;
+  /** @minimum 0 */
+  costPrice: number;
+}
+
+export type PurchasePaymentInputMethod = typeof PurchasePaymentInputMethod[keyof typeof PurchasePaymentInputMethod];
+
+
+export const PurchasePaymentInputMethod = {
+  CASH: 'CASH',
+  CARD: 'CARD',
+  INSTAPAY: 'INSTAPAY',
+  WALLET: 'WALLET',
+  CREDIT: 'CREDIT',
+} as const;
+
+export interface PurchasePaymentInput {
+  method: PurchasePaymentInputMethod;
+  /** @minimum 0 */
+  amount: number;
+  /** @nullable */
+  treasuryAccountId?: string | null;
+}
+
+export interface CreatePurchaseInput {
+  supplierId: string;
+  warehouseId: string;
+  /** @nullable */
+  supplierInvoiceNumber?: string | null;
+  /** @nullable */
+  invoiceDate?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @minimum 0 */
+  discountAmount?: number;
+  /** @minimum 0 */
+  taxAmount?: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @minItems 1 */
+  items: PurchaseItemInput[];
+  payments: PurchasePaymentInput[];
+}
+
+export interface Purchase {
+  id: string;
+  invoiceNumber: string;
+  /** @nullable */
+  supplierInvoiceNumber?: string | null;
+  supplierId: string;
+  /** @nullable */
+  supplierName?: string | null;
+  warehouseId: string;
+  /** @nullable */
+  warehouseName?: string | null;
+  /** @nullable */
+  invoiceDate?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+  subtotal: string;
+  taxAmount: string;
+  totalAmount: string;
+  amountPaid: string;
+  remainingBalance: string;
+  status: string;
+  returnStatus: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  userName?: string | null;
+  createdAt: string;
+}
+
+export interface PurchaseItem {
+  id: string;
+  variantId: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  barcode?: string | null;
+  /** @nullable */
+  productName?: string | null;
+  /** @nullable */
+  colorName?: string | null;
+  /** @nullable */
+  sizeName?: string | null;
+  quantity: number;
+  costPrice: string;
+  lineTotal: string;
+  returnedQuantity?: number;
+}
+
+export interface PurchasePayment {
+  id: string;
+  method: string;
+  /** @nullable */
+  treasuryAccountId?: string | null;
+  /** @nullable */
+  accountName?: string | null;
+  amount: string;
+  createdAt?: string;
+}
+
+export type PurchaseDetail = Purchase & {
+  items: PurchaseItem[];
+  payments: PurchasePayment[];
+};
+
+export interface PurchaseList {
+  items: Purchase[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface PurchaseReturnItemInput {
+  purchaseItemId: string;
+  /** @minimum 1 */
+  quantity: number;
+}
+
+export type CreatePurchaseReturnInputRefundMethod = typeof CreatePurchaseReturnInputRefundMethod[keyof typeof CreatePurchaseReturnInputRefundMethod];
+
+
+export const CreatePurchaseReturnInputRefundMethod = {
+  CASH: 'CASH',
+  CARD: 'CARD',
+  INSTAPAY: 'INSTAPAY',
+  WALLET: 'WALLET',
+  CREDIT: 'CREDIT',
+} as const;
+
+export interface CreatePurchaseReturnInput {
+  purchaseId: string;
+  refundMethod?: CreatePurchaseReturnInputRefundMethod;
+  /** @nullable */
+  treasuryAccountId?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  /** @minItems 1 */
+  items: PurchaseReturnItemInput[];
+}
+
+export interface PurchaseReturn {
+  id: string;
+  returnNumber: string;
+  purchaseId: string;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  warehouseId?: string;
+  totalAmount: string;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  userName?: string | null;
+  createdAt: string;
+}
+
+export interface PurchaseReturnItem {
+  id: string;
+  variantId: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  productName?: string | null;
+  quantity: number;
+  costPrice: string;
+  lineTotal: string;
+}
+
+export type PurchaseReturnDetail = PurchaseReturn & {
+  items: PurchaseReturnItem[];
+};
+
+export interface PurchaseReturnList {
+  items: PurchaseReturn[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ExpenseCategoryInput {
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface ExpenseCategoryUpdate {
+  /** @minLength 1 */
+  name?: string;
+  isActive?: boolean;
+}
+
+export interface Expense {
+  id: string;
+  categoryId: string;
+  /** @nullable */
+  categoryName?: string | null;
+  amount: string;
+  expenseDate: string;
+  /** @nullable */
+  description?: string | null;
+  treasuryAccountId: string;
+  /** @nullable */
+  recordedBy?: string | null;
+  createdAt: string;
+}
+
+export interface CreateExpenseInput {
+  categoryId: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  expenseDate: string;
+  treasuryAccountId: string;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface ExpenseList {
+  items: Expense[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface Employee {
+  id: string;
+  /** @nullable */
+  userId?: string | null;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  jobTitle?: string | null;
+  monthlySalary: string;
+  advanceBalance: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface EmployeeInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  jobTitle?: string | null;
+  /** @minimum 0 */
+  monthlySalary?: number;
+  /** @nullable */
+  userId?: string | null;
+}
+
+export interface EmployeeUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  jobTitle?: string | null;
+  /** @minimum 0 */
+  monthlySalary?: number;
+  isActive?: boolean;
+}
+
+export interface EmployeeAdvance {
+  id: string;
+  employeeId: string;
+  /** @nullable */
+  employeeName?: string | null;
+  amount: string;
+  advanceDate: string;
+  /** @nullable */
+  notes?: string | null;
+  treasuryAccountId: string;
+  createdAt: string;
+}
+
+export interface CreateAdvanceInput {
+  employeeId: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  advanceDate: string;
+  treasuryAccountId: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface AdvanceList {
+  items: EmployeeAdvance[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type SalaryRecordStatus = typeof SalaryRecordStatus[keyof typeof SalaryRecordStatus];
+
+
+export const SalaryRecordStatus = {
+  PENDING: 'PENDING',
+  PAID: 'PAID',
+} as const;
+
+export interface SalaryRecord {
+  id: string;
+  employeeId: string;
+  /** @nullable */
+  employeeName?: string | null;
+  periodMonth: string;
+  baseSalary: string;
+  deductions: string;
+  bonuses: string;
+  netAmount: string;
+  status: SalaryRecordStatus;
+  /** @nullable */
+  treasuryAccountId?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  createdAt: string;
+}
+
+export interface CreateSalaryInput {
+  employeeId: string;
+  /** @minLength 1 */
+  periodMonth: string;
+  /** @minimum 0 */
+  baseSalary?: number;
+  /** @minimum 0 */
+  bonuses?: number;
+  /** @minimum 0 */
+  deductions?: number;
+}
+
+export interface PaySalaryInput {
+  treasuryAccountId: string;
+}
+
+export interface SalaryList {
+  items: SalaryRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type EquityMovementType = typeof EquityMovementType[keyof typeof EquityMovementType];
+
+
+export const EquityMovementType = {
+  WITHDRAWAL: 'WITHDRAWAL',
+  DEPOSIT: 'DEPOSIT',
+} as const;
+
+export interface EquityMovement {
+  id: string;
+  type: EquityMovementType;
+  amount: string;
+  movementDate: string;
+  /** @nullable */
+  description?: string | null;
+  treasuryAccountId: string;
+  createdAt: string;
+}
+
+export type CreateEquityMovementInputType = typeof CreateEquityMovementInputType[keyof typeof CreateEquityMovementInputType];
+
+
+export const CreateEquityMovementInputType = {
+  WITHDRAWAL: 'WITHDRAWAL',
+  DEPOSIT: 'DEPOSIT',
+} as const;
+
+export interface CreateEquityMovementInput {
+  type: CreateEquityMovementInputType;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  movementDate: string;
+  treasuryAccountId: string;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface EquityMovementList {
+  items: EquityMovement[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface DashboardKpis {
+  todaySales: number;
+  todayProfit: number;
+  todayPurchases: number;
+  todayExpenses: number;
+  treasuryBalance: number;
+  lowStockCount: number;
+  customerDebts: number;
+  supplierDebts: number;
+}
+
+export interface NamedValue {
+  label: string;
+  value: number;
+}
+
+export interface CashFlowPoint {
+  label: string;
+  inflow: number;
+  outflow: number;
+}
+
+export interface DashboardCharts {
+  dailySales: NamedValue[];
+  monthlyRevenue: NamedValue[];
+  cashFlow: CashFlowPoint[];
+  bestSellingProducts: NamedValue[];
+  salesByPaymentMethod: NamedValue[];
+  categoryPerformance: NamedValue[];
+}
+
+export interface SalesSummaryRow {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  /** @nullable */
+  customerName?: string | null;
+  total: string;
+  /** @nullable */
+  paymentMethod?: string | null;
+  paymentStatus: string;
+}
+
+export interface SalesSummaryReport {
+  rows: SalesSummaryRow[];
+  count: number;
+  total: number;
+}
+
+export interface PurchasesSummaryRow {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  /** @nullable */
+  supplierName?: string | null;
+  total: string;
+  status: string;
+}
+
+export interface PurchasesSummaryReport {
+  rows: PurchasesSummaryRow[];
+  count: number;
+  total: number;
+}
+
+export interface InventoryStockRow {
+  variantId: string;
+  productName: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  variantLabel?: string | null;
+  /** @nullable */
+  warehouseName?: string | null;
+  /** @nullable */
+  categoryName?: string | null;
+  /** @nullable */
+  brandName?: string | null;
+  quantity: number;
+  reorderPoint?: number;
+  cost?: string;
+  value: number;
+}
+
+export interface InventoryStockReport {
+  rows: InventoryStockRow[];
+  totalValue: number;
+  totalQuantity: number;
+}
+
+export interface LowStockRow {
+  variantId: string;
+  productName: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  variantLabel?: string | null;
+  /** @nullable */
+  warehouseName?: string | null;
+  quantity: number;
+  reorderPoint: number;
+  shortage: number;
+}
+
+export interface LowStockReport {
+  rows: LowStockRow[];
+  count: number;
+}
+
+export interface ProfitLossReport {
+  revenue: number;
+  salesReturns: number;
+  netRevenue: number;
+  cogs: number;
+  grossProfit: number;
+  expenses: number;
+  salaries: number;
+  netProfit: number;
+}
+
+export interface TreasuryReportRow {
+  id: string;
+  date: string;
+  accountName: string;
+  direction: string;
+  amount: string;
+  balanceAfter: string;
+  referenceType: string;
+}
+
+export interface TreasuryReport {
+  rows: TreasuryReportRow[];
+  totalIn: number;
+  totalOut: number;
+}
+
+export interface ExpenseReportRow {
+  id: string;
+  date: string;
+  /** @nullable */
+  categoryName?: string | null;
+  /** @nullable */
+  description?: string | null;
+  amount: string;
+}
+
+export interface ExpenseReport {
+  rows: ExpenseReportRow[];
+  total: number;
+}
+
+export interface TopProductRow {
+  variantId: string;
+  productName: string;
+  /** @nullable */
+  sku?: string | null;
+  quantitySold: number;
+  revenue: number;
+}
+
+export interface TopProductsReport {
+  rows: TopProductRow[];
+}
+
+export interface StoreSettings {
+  id: string;
+  currency: string;
+  taxEnabled: boolean;
+  taxRate: string;
+  taxInclusive: boolean;
+  receiptSize: string;
+  /** @nullable */
+  receiptFooter?: string | null;
+  numeralFormat: string;
+  allowNegativeStock: boolean;
+  allowBelowCostDiscount: boolean;
+  allowNegativeTreasury: boolean;
+  requireSessionForCash: boolean;
+}
+
+export type UpdateStoreSettingsInputReceiptSize = typeof UpdateStoreSettingsInputReceiptSize[keyof typeof UpdateStoreSettingsInputReceiptSize];
+
+
+export const UpdateStoreSettingsInputReceiptSize = {
+  '58mm': '58mm',
+  '80mm': '80mm',
+  A4: 'A4',
+} as const;
+
+export type UpdateStoreSettingsInputNumeralFormat = typeof UpdateStoreSettingsInputNumeralFormat[keyof typeof UpdateStoreSettingsInputNumeralFormat];
+
+
+export const UpdateStoreSettingsInputNumeralFormat = {
+  western: 'western',
+  arabic: 'arabic',
+} as const;
+
+export interface UpdateStoreSettingsInput {
+  /**
+     * @minLength 1
+     * @maxLength 8
+     */
+  currency?: string;
+  taxEnabled?: boolean;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  taxRate?: number;
+  taxInclusive?: boolean;
+  receiptSize?: UpdateStoreSettingsInputReceiptSize;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  receiptFooter?: string | null;
+  numeralFormat?: UpdateStoreSettingsInputNumeralFormat;
+  allowNegativeStock?: boolean;
+  allowBelowCostDiscount?: boolean;
+  allowNegativeTreasury?: boolean;
+  requireSessionForCash?: boolean;
+}
+
+export interface NumberSequence {
+  id: string;
+  kind: string;
+  prefix: string;
+  padding: number;
+  nextValue: number;
+}
+
+export interface UpdateNumberSequenceInput {
+  /** @maxLength 12 */
+  prefix?: string;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  padding?: number;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  severity: string;
+  title: string;
+  /** @nullable */
+  body?: string | null;
+  /** @nullable */
+  referenceType?: string | null;
+  /** @nullable */
+  referenceId?: string | null;
+  isRead: boolean;
+  createdAt: string;
+  /** @nullable */
+  readAt?: string | null;
+}
+
+export interface NotificationList {
+  items: Notification[];
+  total: number;
+  unread: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface UnreadCount {
+  unread: number;
+}
+
+export interface CreateTransferItem {
+  variantId: string;
+  /** @minimum 1 */
+  quantity: number;
+}
+
+export interface CreateTransferInput {
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  notes?: string | null;
+  /** @minItems 1 */
+  items: CreateTransferItem[];
+}
+
+export interface TransferSummary {
+  id: string;
+  transferNumber: string;
+  /** @nullable */
+  fromWarehouseName: string | null;
+  /** @nullable */
+  toWarehouseName: string | null;
+  status: string;
+  itemCount: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  createdByName?: string | null;
+  createdAt: string;
+  /** @nullable */
+  confirmedAt?: string | null;
+}
+
+export interface TransferList {
+  items: TransferSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface TransferItem {
+  id: string;
+  variantId: string;
+  /** @nullable */
+  productName?: string | null;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  variantLabel?: string | null;
+  quantity: number;
+}
+
+export type TransferDetail = TransferSummary & {
+  fromWarehouseId?: string;
+  toWarehouseId?: string;
+  items: TransferItem[];
+};
+
+export interface CreateStockCountInput {
+  warehouseId: string;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  notes?: string | null;
+}
+
+export interface UpdateStockCountItemEntry {
+  itemId: string;
+  /** @minimum 0 */
+  countedQuantity: number;
+}
+
+export interface UpdateStockCountItemsInput {
+  /** @minItems 1 */
+  items: UpdateStockCountItemEntry[];
+}
+
+export interface StockCountSummary {
+  id: string;
+  countNumber: string;
+  /** @nullable */
+  warehouseName: string | null;
+  status: string;
+  itemCount: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  createdByName?: string | null;
+  createdAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
+export interface StockCountList {
+  items: StockCountSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface StockCountItem {
+  id: string;
+  variantId: string;
+  /** @nullable */
+  productName?: string | null;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  variantLabel?: string | null;
+  expectedQuantity: number;
+  /** @nullable */
+  countedQuantity?: number | null;
+}
+
+export type StockCountDetail = StockCountSummary & {
+  warehouseId?: string;
+  items: StockCountItem[];
+};
+
 /**
  * Validation error
  */
@@ -1133,4 +1923,227 @@ page?: number;
 pageSize?: number;
 invoiceId?: string;
 };
+
+export type ListPurchasesParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+search?: string;
+supplierId?: string;
+status?: string;
+dateFrom?: string;
+dateTo?: string;
+};
+
+export type ListPurchaseReturnsParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+purchaseId?: string;
+};
+
+export type ListExpenseCategoriesParams = {
+includeInactive?: boolean;
+};
+
+export type ListExpensesParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+categoryId?: string;
+fromDate?: string;
+toDate?: string;
+};
+
+export type ListEmployeesParams = {
+includeInactive?: boolean;
+};
+
+export type ListAdvancesParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+employeeId?: string;
+};
+
+export type ListSalariesParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+employeeId?: string;
+periodMonth?: string;
+status?: ListSalariesStatus;
+};
+
+export type ListSalariesStatus = typeof ListSalariesStatus[keyof typeof ListSalariesStatus];
+
+
+export const ListSalariesStatus = {
+  PENDING: 'PENDING',
+  PAID: 'PAID',
+} as const;
+
+export type ListEquityMovementsParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+type?: ListEquityMovementsType;
+};
+
+export type ListEquityMovementsType = typeof ListEquityMovementsType[keyof typeof ListEquityMovementsType];
+
+
+export const ListEquityMovementsType = {
+  WITHDRAWAL: 'WITHDRAWAL',
+  DEPOSIT: 'DEPOSIT',
+} as const;
+
+export type GetSalesSummaryReportParams = {
+fromDate?: string;
+toDate?: string;
+customerId?: string;
+paymentMethod?: GetSalesSummaryReportPaymentMethod;
+};
+
+export type GetSalesSummaryReportPaymentMethod = typeof GetSalesSummaryReportPaymentMethod[keyof typeof GetSalesSummaryReportPaymentMethod];
+
+
+export const GetSalesSummaryReportPaymentMethod = {
+  CASH: 'CASH',
+  CARD: 'CARD',
+  INSTAPAY: 'INSTAPAY',
+  WALLET: 'WALLET',
+  CREDIT: 'CREDIT',
+} as const;
+
+export type GetPurchasesSummaryReportParams = {
+fromDate?: string;
+toDate?: string;
+supplierId?: string;
+};
+
+export type GetInventoryStockReportParams = {
+warehouseId?: string;
+categoryId?: string;
+brandId?: string;
+};
+
+export type GetLowStockReportParams = {
+warehouseId?: string;
+};
+
+export type GetProfitLossReportParams = {
+fromDate?: string;
+toDate?: string;
+};
+
+export type GetTreasuryReportParams = {
+fromDate?: string;
+toDate?: string;
+accountId?: string;
+};
+
+export type GetExpenseReportParams = {
+fromDate?: string;
+toDate?: string;
+categoryId?: string;
+};
+
+export type GetTopProductsReportParams = {
+fromDate?: string;
+toDate?: string;
+};
+
+export type ListNotificationsParams = {
+unreadOnly?: boolean;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+};
+
+export type ListTransfersParams = {
+status?: ListTransfersStatus;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+};
+
+export type ListTransfersStatus = typeof ListTransfersStatus[keyof typeof ListTransfersStatus];
+
+
+export const ListTransfersStatus = {
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type ListStockCountsParams = {
+status?: ListStockCountsStatus;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+};
+
+export type ListStockCountsStatus = typeof ListStockCountsStatus[keyof typeof ListStockCountsStatus];
+
+
+export const ListStockCountsStatus = {
+  OPEN: 'OPEN',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const;
 

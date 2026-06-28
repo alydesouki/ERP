@@ -12,6 +12,14 @@ import inventoryRouter from "./inventory";
 import treasuryRouter from "./treasury";
 import customersRouter from "./customers";
 import suppliersRouter from "./suppliers";
+import salesRouter from "./sales";
+import purchasesRouter from "./purchases";
+import financeRouter from "./finance";
+import dashboardRouter from "./dashboard";
+import reportsRouter from "./reports";
+import settingsRouter from "./settings";
+import notificationsRouter from "./notifications";
+import inventoryOpsRouter from "./inventory-ops";
 
 const router: IRouter = Router();
 
@@ -28,5 +36,13 @@ router.use(inventoryRouter);
 router.use(treasuryRouter);
 router.use(customersRouter);
 router.use(suppliersRouter);
+router.use(salesRouter);
+router.use(purchasesRouter);
+router.use(financeRouter);
+router.use(dashboardRouter);
+router.use(reportsRouter);
+router.use(settingsRouter);
+router.use(notificationsRouter);
+router.use(inventoryOpsRouter);
 
 export default router;

@@ -1782,6 +1782,1082 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /purchases/invoices:
+    get:
+      operationId: listPurchases
+      tags: [purchases]
+      summary: Purchase history (paginated, filterable)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: supplierId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string }
+        - name: dateTo
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated purchases
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseList"
+    post:
+      operationId: createPurchase
+      tags: [purchases]
+      summary: Create a purchase (atomic invoice + inventory + treasury + accounting)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePurchaseInput"
+      responses:
+        "201":
+          description: Purchase completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /purchases/invoices/{id}:
+    get:
+      operationId: getPurchase
+      tags: [purchases]
+      summary: Purchase detail (items + payments)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Purchase detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /purchases/returns:
+    get:
+      operationId: listPurchaseReturns
+      tags: [purchases]
+      summary: Purchase returns history
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: purchaseId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Paginated returns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseReturnList"
+    post:
+      operationId: createPurchaseReturn
+      tags: [purchases]
+      summary: Create a purchase return (reverses inventory + treasury + accounting)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePurchaseReturnInput"
+      responses:
+        "201":
+          description: Return completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseReturnDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /purchases/returns/{id}:
+    get:
+      operationId: getPurchaseReturn
+      tags: [purchases]
+      summary: Purchase return detail
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Return detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseReturnDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /finance/expense-categories:
+    get:
+      operationId: listExpenseCategories
+      tags: [finance]
+      summary: List expense categories
+      parameters:
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ExpenseCategory" }
+    post:
+      operationId: createExpenseCategory
+      tags: [finance]
+      summary: Create expense category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseCategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseCategory"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /finance/expense-categories/{id}:
+    patch:
+      operationId: updateExpenseCategory
+      tags: [finance]
+      summary: Update expense category
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseCategoryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseCategory"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteExpenseCategory
+      tags: [finance]
+      summary: Deactivate expense category
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /finance/expenses:
+    get:
+      operationId: listExpenses
+      tags: [finance]
+      summary: List expenses
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: categoryId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Paginated expenses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseList"
+    post:
+      operationId: createExpense
+      tags: [finance]
+      summary: Record an expense (treasury OUT + journal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExpenseInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /finance/employees:
+    get:
+      operationId: listEmployees
+      tags: [finance]
+      summary: List employees
+      parameters:
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Employee" }
+    post:
+      operationId: createEmployee
+      tags: [finance]
+      summary: Create employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /finance/employees/{id}:
+    patch:
+      operationId: updateEmployee
+      tags: [finance]
+      summary: Update employee
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteEmployee
+      tags: [finance]
+      summary: Deactivate employee
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /finance/advances:
+    get:
+      operationId: listAdvances
+      tags: [finance]
+      summary: List employee advances
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: employeeId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Paginated advances
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdvanceList"
+    post:
+      operationId: createAdvance
+      tags: [finance]
+      summary: Give an employee advance (treasury OUT + journal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAdvanceInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeAdvance"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /finance/salaries:
+    get:
+      operationId: listSalaries
+      tags: [finance]
+      summary: List salary records
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: employeeId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: periodMonth
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, PAID] }
+      responses:
+        "200":
+          description: Paginated salary records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalaryList"
+    post:
+      operationId: createSalary
+      tags: [finance]
+      summary: Create a salary record (accrue expense + payable)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSalaryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalaryRecord"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /finance/salaries/{id}/pay:
+    post:
+      operationId: paySalary
+      tags: [finance]
+      summary: Pay a salary record (treasury OUT + clear payable)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaySalaryInput"
+      responses:
+        "200":
+          description: Paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalaryRecord"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /finance/equity-movements:
+    get:
+      operationId: listEquityMovements
+      tags: [finance]
+      summary: List owner withdrawals/deposits
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: type
+          in: query
+          schema: { type: string, enum: [WITHDRAWAL, DEPOSIT] }
+      responses:
+        "200":
+          description: Paginated equity movements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquityMovementList"
+    post:
+      operationId: createEquityMovement
+      tags: [finance]
+      summary: Owner withdrawal or capital deposit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEquityMovementInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquityMovement"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /dashboard/kpis:
+    get:
+      operationId: getDashboardKpis
+      tags: [dashboard]
+      summary: Real-time dashboard KPI cards
+      responses:
+        "200":
+          description: KPI snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardKpis"
+
+  /dashboard/charts:
+    get:
+      operationId: getDashboardCharts
+      tags: [dashboard]
+      summary: Dashboard chart datasets
+      responses:
+        "200":
+          description: Chart datasets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardCharts"
+
+  /reports/sales-summary:
+    get:
+      operationId: getSalesSummaryReport
+      tags: [reports]
+      summary: Sales summary report
+      parameters:
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: customerId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: paymentMethod
+          in: query
+          schema: { type: string, enum: [CASH, CARD, INSTAPAY, WALLET, CREDIT] }
+      responses:
+        "200":
+          description: Sales summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesSummaryReport"
+
+  /reports/purchases-summary:
+    get:
+      operationId: getPurchasesSummaryReport
+      tags: [reports]
+      summary: Purchases summary report
+      parameters:
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: supplierId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Purchases summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchasesSummaryReport"
+
+  /reports/inventory-stock:
+    get:
+      operationId: getInventoryStockReport
+      tags: [reports]
+      summary: Inventory stock valuation report
+      parameters:
+        - name: warehouseId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: categoryId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: brandId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Inventory stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryStockReport"
+
+  /reports/low-stock:
+    get:
+      operationId: getLowStockReport
+      tags: [reports]
+      summary: Low stock alert report
+      parameters:
+        - name: warehouseId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Low stock items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LowStockReport"
+
+  /reports/profit-loss:
+    get:
+      operationId: getProfitLossReport
+      tags: [reports]
+      summary: Profit & loss statement
+      parameters:
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: P&L
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfitLossReport"
+
+  /reports/treasury:
+    get:
+      operationId: getTreasuryReport
+      tags: [reports]
+      summary: Treasury movements report
+      parameters:
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: accountId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Treasury movements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasuryReport"
+
+  /reports/expenses:
+    get:
+      operationId: getExpenseReport
+      tags: [reports]
+      summary: Expense report
+      parameters:
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: categoryId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Expenses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseReport"
+
+  /reports/top-products:
+    get:
+      operationId: getTopProductsReport
+      tags: [reports]
+      summary: Top selling products report
+      parameters:
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Top products
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopProductsReport"
+
+  /settings:
+    get:
+      operationId: getStoreSettings
+      tags: [settings]
+      summary: Get store settings
+      responses:
+        "200":
+          description: Store settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreSettings"
+    patch:
+      operationId: updateStoreSettings
+      tags: [settings]
+      summary: Update store settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStoreSettingsInput"
+      responses:
+        "200":
+          description: Updated store settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreSettings"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /settings/sequences:
+    get:
+      operationId: listNumberSequences
+      tags: [settings]
+      summary: List document number sequences
+      responses:
+        "200":
+          description: Number sequences
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NumberSequence" }
+
+  /settings/sequences/{kind}:
+    patch:
+      operationId: updateNumberSequence
+      tags: [settings]
+      summary: Update a document number sequence prefix/padding
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNumberSequenceInput"
+      responses:
+        "200":
+          description: Updated sequence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NumberSequence"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications for the current user
+      parameters:
+        - name: unreadOnly
+          in: query
+          schema: { type: boolean }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationList"
+
+  /notifications/unread-count:
+    get:
+      operationId: getUnreadNotificationCount
+      tags: [notifications]
+      summary: Unread notification count for the current user
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCount"
+
+  /notifications/refresh:
+    post:
+      operationId: refreshNotifications
+      tags: [notifications]
+      summary: Recompute alert notifications (low stock, debts, negative treasury)
+      responses:
+        "200":
+          description: Refreshed unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCount"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: Updated unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCount"
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/transfers:
+    get:
+      operationId: listTransfers
+      tags: [transfers]
+      summary: List warehouse transfers
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, COMPLETED, CANCELLED] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Transfers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferList"
+    post:
+      operationId: createTransfer
+      tags: [transfers]
+      summary: Create a warehouse transfer (books TRANSFER_OUT from source)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransferInput"
+      responses:
+        "201":
+          description: Created transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/transfers/{id}:
+    get:
+      operationId: getTransfer
+      tags: [transfers]
+      summary: Get a transfer with its items
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Transfer detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/transfers/{id}/complete:
+    post:
+      operationId: completeTransfer
+      tags: [transfers]
+      summary: Confirm receipt of a transfer (books TRANSFER_IN to destination)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Completed transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/transfers/{id}/cancel:
+    post:
+      operationId: cancelTransfer
+      tags: [transfers]
+      summary: Cancel a pending transfer (reverses TRANSFER_OUT)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Cancelled transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/stock-counts:
+    get:
+      operationId: listStockCounts
+      tags: [stock-counts]
+      summary: List stock-count sessions
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, COMPLETED, CANCELLED] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Stock counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockCountList"
+    post:
+      operationId: createStockCount
+      tags: [stock-counts]
+      summary: Open a stock-count session (snapshots expected quantities)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStockCountInput"
+      responses:
+        "201":
+          description: Created stock count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockCountDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/stock-counts/{id}:
+    get:
+      operationId: getStockCount
+      tags: [stock-counts]
+      summary: Get a stock count with its items
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Stock count detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockCountDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/stock-counts/{id}/items:
+    patch:
+      operationId: updateStockCountItems
+      tags: [stock-counts]
+      summary: Record counted quantities for a stock count
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStockCountItemsInput"
+      responses:
+        "200":
+          description: Updated stock count detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockCountDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/stock-counts/{id}/complete:
+    post:
+      operationId: completeStockCount
+      tags: [stock-counts]
+      summary: Apply counted quantities as STOCK_COUNT_CORRECTION movements
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Completed stock count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockCountDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/stock-counts/{id}/cancel:
+    post:
+      operationId: cancelStockCount
+      tags: [stock-counts]
+      summary: Cancel an open stock count
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Cancelled stock count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockCountDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   parameters:
     IdParam:
@@ -2927,3 +4003,848 @@ components:
         cart: {}
         itemCount: { type: integer, minimum: 0, default: 0 }
         totalAmount: { type: number, minimum: 0, default: 0 }
+
+    PurchaseItemInput:
+      type: object
+      required: [variantId, quantity, costPrice]
+      properties:
+        variantId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+        costPrice: { type: number, minimum: 0 }
+
+    PurchasePaymentInput:
+      type: object
+      required: [method, amount]
+      properties:
+        method: { type: string, enum: [CASH, CARD, INSTAPAY, WALLET, CREDIT] }
+        amount: { type: number, minimum: 0 }
+        treasuryAccountId: { type: ["string", "null"], format: uuid }
+
+    CreatePurchaseInput:
+      type: object
+      required: [supplierId, warehouseId, items, payments]
+      properties:
+        supplierId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        supplierInvoiceNumber: { type: ["string", "null"] }
+        invoiceDate: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"] }
+        discountAmount: { type: number, minimum: 0, default: 0 }
+        taxAmount: { type: number, minimum: 0, default: 0 }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/PurchaseItemInput" }
+        payments:
+          type: array
+          items: { $ref: "#/components/schemas/PurchasePaymentInput" }
+
+    Purchase:
+      type: object
+      required: [id, invoiceNumber, supplierId, warehouseId, subtotal, taxAmount, totalAmount, amountPaid, remainingBalance, status, returnStatus, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        invoiceNumber: { type: string }
+        supplierInvoiceNumber: { type: ["string", "null"] }
+        supplierId: { type: string, format: uuid }
+        supplierName: { type: ["string", "null"] }
+        warehouseId: { type: string, format: uuid }
+        warehouseName: { type: ["string", "null"] }
+        invoiceDate: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"] }
+        subtotal: { type: string }
+        taxAmount: { type: string }
+        totalAmount: { type: string }
+        amountPaid: { type: string }
+        remainingBalance: { type: string }
+        status: { type: string }
+        returnStatus: { type: string }
+        notes: { type: ["string", "null"] }
+        userName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    PurchaseItem:
+      type: object
+      required: [id, variantId, quantity, costPrice, lineTotal]
+      properties:
+        id: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        sku: { type: ["string", "null"] }
+        barcode: { type: ["string", "null"] }
+        productName: { type: ["string", "null"] }
+        colorName: { type: ["string", "null"] }
+        sizeName: { type: ["string", "null"] }
+        quantity: { type: integer }
+        costPrice: { type: string }
+        lineTotal: { type: string }
+        returnedQuantity: { type: integer }
+
+    PurchasePayment:
+      type: object
+      required: [id, method, amount]
+      properties:
+        id: { type: string, format: uuid }
+        method: { type: string }
+        treasuryAccountId: { type: ["string", "null"], format: uuid }
+        accountName: { type: ["string", "null"] }
+        amount: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    PurchaseDetail:
+      allOf:
+        - $ref: "#/components/schemas/Purchase"
+        - type: object
+          required: [items, payments]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PurchaseItem" }
+            payments:
+              type: array
+              items: { $ref: "#/components/schemas/PurchasePayment" }
+
+    PurchaseList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Purchase" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    PurchaseReturnItemInput:
+      type: object
+      required: [purchaseItemId, quantity]
+      properties:
+        purchaseItemId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+
+    CreatePurchaseReturnInput:
+      type: object
+      required: [purchaseId, items]
+      properties:
+        purchaseId: { type: string, format: uuid }
+        refundMethod: { type: string, enum: [CASH, CARD, INSTAPAY, WALLET, CREDIT], default: CREDIT }
+        treasuryAccountId: { type: ["string", "null"], format: uuid }
+        reason: { type: ["string", "null"] }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/PurchaseReturnItemInput" }
+
+    PurchaseReturn:
+      type: object
+      required: [id, returnNumber, purchaseId, totalAmount, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        returnNumber: { type: string }
+        purchaseId: { type: string, format: uuid }
+        invoiceNumber: { type: ["string", "null"] }
+        warehouseId: { type: string, format: uuid }
+        totalAmount: { type: string }
+        reason: { type: ["string", "null"] }
+        userName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    PurchaseReturnItem:
+      type: object
+      required: [id, variantId, quantity, costPrice, lineTotal]
+      properties:
+        id: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        sku: { type: ["string", "null"] }
+        productName: { type: ["string", "null"] }
+        quantity: { type: integer }
+        costPrice: { type: string }
+        lineTotal: { type: string }
+
+    PurchaseReturnDetail:
+      allOf:
+        - $ref: "#/components/schemas/PurchaseReturn"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PurchaseReturnItem" }
+
+    PurchaseReturnList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PurchaseReturn" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    ExpenseCategory:
+      type: object
+      required: [id, name, isActive, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    ExpenseCategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+
+    ExpenseCategoryUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        isActive: { type: boolean }
+
+    Expense:
+      type: object
+      required: [id, categoryId, amount, expenseDate, treasuryAccountId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        categoryId: { type: string, format: uuid }
+        categoryName: { type: ["string", "null"] }
+        amount: { type: string }
+        expenseDate: { type: string, format: date }
+        description: { type: ["string", "null"] }
+        treasuryAccountId: { type: string, format: uuid }
+        recordedBy: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    CreateExpenseInput:
+      type: object
+      required: [categoryId, amount, expenseDate, treasuryAccountId]
+      properties:
+        categoryId: { type: string, format: uuid }
+        amount: { type: number, exclusiveMinimum: 0 }
+        expenseDate: { type: string, format: date }
+        treasuryAccountId: { type: string, format: uuid }
+        description: { type: ["string", "null"] }
+
+    ExpenseList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Expense" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    Employee:
+      type: object
+      required: [id, name, monthlySalary, advanceBalance, isActive, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: ["string", "null"] }
+        name: { type: string }
+        phone: { type: ["string", "null"] }
+        jobTitle: { type: ["string", "null"] }
+        monthlySalary: { type: string }
+        advanceBalance: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    EmployeeInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: ["string", "null"] }
+        jobTitle: { type: ["string", "null"] }
+        monthlySalary: { type: number, minimum: 0, default: 0 }
+        userId: { type: ["string", "null"], format: uuid }
+
+    EmployeeUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: ["string", "null"] }
+        jobTitle: { type: ["string", "null"] }
+        monthlySalary: { type: number, minimum: 0 }
+        isActive: { type: boolean }
+
+    EmployeeAdvance:
+      type: object
+      required: [id, employeeId, amount, advanceDate, treasuryAccountId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        employeeName: { type: ["string", "null"] }
+        amount: { type: string }
+        advanceDate: { type: string, format: date }
+        notes: { type: ["string", "null"] }
+        treasuryAccountId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    CreateAdvanceInput:
+      type: object
+      required: [employeeId, amount, advanceDate, treasuryAccountId]
+      properties:
+        employeeId: { type: string, format: uuid }
+        amount: { type: number, exclusiveMinimum: 0 }
+        advanceDate: { type: string, format: date }
+        treasuryAccountId: { type: string, format: uuid }
+        notes: { type: ["string", "null"] }
+
+    AdvanceList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/EmployeeAdvance" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    SalaryRecord:
+      type: object
+      required: [id, employeeId, periodMonth, baseSalary, deductions, bonuses, netAmount, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        employeeName: { type: ["string", "null"] }
+        periodMonth: { type: string }
+        baseSalary: { type: string }
+        deductions: { type: string }
+        bonuses: { type: string }
+        netAmount: { type: string }
+        status: { type: string, enum: [PENDING, PAID] }
+        treasuryAccountId: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    CreateSalaryInput:
+      type: object
+      required: [employeeId, periodMonth]
+      properties:
+        employeeId: { type: string, format: uuid }
+        periodMonth: { type: string, minLength: 1 }
+        baseSalary: { type: number, minimum: 0 }
+        bonuses: { type: number, minimum: 0, default: 0 }
+        deductions: { type: number, minimum: 0, default: 0 }
+
+    PaySalaryInput:
+      type: object
+      required: [treasuryAccountId]
+      properties:
+        treasuryAccountId: { type: string, format: uuid }
+
+    SalaryList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SalaryRecord" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    EquityMovement:
+      type: object
+      required: [id, type, amount, movementDate, treasuryAccountId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [WITHDRAWAL, DEPOSIT] }
+        amount: { type: string }
+        movementDate: { type: string, format: date }
+        description: { type: ["string", "null"] }
+        treasuryAccountId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    CreateEquityMovementInput:
+      type: object
+      required: [type, amount, movementDate, treasuryAccountId]
+      properties:
+        type: { type: string, enum: [WITHDRAWAL, DEPOSIT] }
+        amount: { type: number, exclusiveMinimum: 0 }
+        movementDate: { type: string, format: date }
+        treasuryAccountId: { type: string, format: uuid }
+        description: { type: ["string", "null"] }
+
+    EquityMovementList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/EquityMovement" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    DashboardKpis:
+      type: object
+      required:
+        [
+          todaySales,
+          todayProfit,
+          todayPurchases,
+          todayExpenses,
+          treasuryBalance,
+          lowStockCount,
+          customerDebts,
+          supplierDebts,
+        ]
+      properties:
+        todaySales: { type: number }
+        todayProfit: { type: number }
+        todayPurchases: { type: number }
+        todayExpenses: { type: number }
+        treasuryBalance: { type: number }
+        lowStockCount: { type: integer }
+        customerDebts: { type: number }
+        supplierDebts: { type: number }
+
+    NamedValue:
+      type: object
+      required: [label, value]
+      properties:
+        label: { type: string }
+        value: { type: number }
+
+    CashFlowPoint:
+      type: object
+      required: [label, inflow, outflow]
+      properties:
+        label: { type: string }
+        inflow: { type: number }
+        outflow: { type: number }
+
+    DashboardCharts:
+      type: object
+      required:
+        [
+          dailySales,
+          monthlyRevenue,
+          cashFlow,
+          bestSellingProducts,
+          salesByPaymentMethod,
+          categoryPerformance,
+        ]
+      properties:
+        dailySales:
+          type: array
+          items: { $ref: "#/components/schemas/NamedValue" }
+        monthlyRevenue:
+          type: array
+          items: { $ref: "#/components/schemas/NamedValue" }
+        cashFlow:
+          type: array
+          items: { $ref: "#/components/schemas/CashFlowPoint" }
+        bestSellingProducts:
+          type: array
+          items: { $ref: "#/components/schemas/NamedValue" }
+        salesByPaymentMethod:
+          type: array
+          items: { $ref: "#/components/schemas/NamedValue" }
+        categoryPerformance:
+          type: array
+          items: { $ref: "#/components/schemas/NamedValue" }
+
+    SalesSummaryRow:
+      type: object
+      required: [id, invoiceNumber, date, total, paymentStatus]
+      properties:
+        id: { type: string, format: uuid }
+        invoiceNumber: { type: string }
+        date: { type: string }
+        customerName: { type: ["string", "null"] }
+        total: { type: string }
+        paymentMethod: { type: ["string", "null"] }
+        paymentStatus: { type: string }
+
+    SalesSummaryReport:
+      type: object
+      required: [rows, count, total]
+      properties:
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/SalesSummaryRow" }
+        count: { type: integer }
+        total: { type: number }
+
+    PurchasesSummaryRow:
+      type: object
+      required: [id, invoiceNumber, date, total, status]
+      properties:
+        id: { type: string, format: uuid }
+        invoiceNumber: { type: string }
+        date: { type: string }
+        supplierName: { type: ["string", "null"] }
+        total: { type: string }
+        status: { type: string }
+
+    PurchasesSummaryReport:
+      type: object
+      required: [rows, count, total]
+      properties:
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/PurchasesSummaryRow" }
+        count: { type: integer }
+        total: { type: number }
+
+    InventoryStockRow:
+      type: object
+      required: [variantId, productName, quantity, value]
+      properties:
+        variantId: { type: string, format: uuid }
+        productName: { type: string }
+        sku: { type: ["string", "null"] }
+        variantLabel: { type: ["string", "null"] }
+        warehouseName: { type: ["string", "null"] }
+        categoryName: { type: ["string", "null"] }
+        brandName: { type: ["string", "null"] }
+        quantity: { type: integer }
+        reorderPoint: { type: integer }
+        cost: { type: string }
+        value: { type: number }
+
+    InventoryStockReport:
+      type: object
+      required: [rows, totalValue, totalQuantity]
+      properties:
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/InventoryStockRow" }
+        totalValue: { type: number }
+        totalQuantity: { type: integer }
+
+    LowStockRow:
+      type: object
+      required: [variantId, productName, quantity, reorderPoint, shortage]
+      properties:
+        variantId: { type: string, format: uuid }
+        productName: { type: string }
+        sku: { type: ["string", "null"] }
+        variantLabel: { type: ["string", "null"] }
+        warehouseName: { type: ["string", "null"] }
+        quantity: { type: integer }
+        reorderPoint: { type: integer }
+        shortage: { type: integer }
+
+    LowStockReport:
+      type: object
+      required: [rows, count]
+      properties:
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/LowStockRow" }
+        count: { type: integer }
+
+    ProfitLossReport:
+      type: object
+      required:
+        [revenue, salesReturns, netRevenue, cogs, grossProfit, expenses, salaries, netProfit]
+      properties:
+        revenue: { type: number }
+        salesReturns: { type: number }
+        netRevenue: { type: number }
+        cogs: { type: number }
+        grossProfit: { type: number }
+        expenses: { type: number }
+        salaries: { type: number }
+        netProfit: { type: number }
+
+    TreasuryReportRow:
+      type: object
+      required: [id, date, accountName, direction, amount, balanceAfter, referenceType]
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string }
+        accountName: { type: string }
+        direction: { type: string }
+        amount: { type: string }
+        balanceAfter: { type: string }
+        referenceType: { type: string }
+
+    TreasuryReport:
+      type: object
+      required: [rows, totalIn, totalOut]
+      properties:
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/TreasuryReportRow" }
+        totalIn: { type: number }
+        totalOut: { type: number }
+
+    ExpenseReportRow:
+      type: object
+      required: [id, date, amount]
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string }
+        categoryName: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        amount: { type: string }
+
+    ExpenseReport:
+      type: object
+      required: [rows, total]
+      properties:
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/ExpenseReportRow" }
+        total: { type: number }
+
+    TopProductRow:
+      type: object
+      required: [variantId, productName, quantitySold, revenue]
+      properties:
+        variantId: { type: string, format: uuid }
+        productName: { type: string }
+        sku: { type: ["string", "null"] }
+        quantitySold: { type: integer }
+        revenue: { type: number }
+
+    TopProductsReport:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/TopProductRow" }
+
+    StoreSettings:
+      type: object
+      required:
+        [
+          id,
+          currency,
+          taxEnabled,
+          taxRate,
+          taxInclusive,
+          receiptSize,
+          numeralFormat,
+          allowNegativeStock,
+          allowBelowCostDiscount,
+          allowNegativeTreasury,
+          requireSessionForCash,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        currency: { type: string }
+        taxEnabled: { type: boolean }
+        taxRate: { type: string }
+        taxInclusive: { type: boolean }
+        receiptSize: { type: string }
+        receiptFooter: { type: ["string", "null"] }
+        numeralFormat: { type: string }
+        allowNegativeStock: { type: boolean }
+        allowBelowCostDiscount: { type: boolean }
+        allowNegativeTreasury: { type: boolean }
+        requireSessionForCash: { type: boolean }
+
+    UpdateStoreSettingsInput:
+      type: object
+      properties:
+        currency: { type: string, minLength: 1, maxLength: 8 }
+        taxEnabled: { type: boolean }
+        taxRate: { type: number, minimum: 0, maximum: 100 }
+        taxInclusive: { type: boolean }
+        receiptSize: { type: string, enum: ["58mm", "80mm", "A4"] }
+        receiptFooter: { type: ["string", "null"], maxLength: 500 }
+        numeralFormat: { type: string, enum: ["western", "arabic"] }
+        allowNegativeStock: { type: boolean }
+        allowBelowCostDiscount: { type: boolean }
+        allowNegativeTreasury: { type: boolean }
+        requireSessionForCash: { type: boolean }
+
+    NumberSequence:
+      type: object
+      required: [id, kind, prefix, padding, nextValue]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        prefix: { type: string }
+        padding: { type: integer }
+        nextValue: { type: integer }
+
+    UpdateNumberSequenceInput:
+      type: object
+      properties:
+        prefix: { type: string, maxLength: 12 }
+        padding: { type: integer, minimum: 1, maximum: 10 }
+
+    Notification:
+      type: object
+      required: [id, type, severity, title, isRead, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        severity: { type: string }
+        title: { type: string }
+        body: { type: ["string", "null"] }
+        referenceType: { type: ["string", "null"] }
+        referenceId: { type: ["string", "null"] }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        readAt: { type: ["string", "null"] }
+
+    NotificationList:
+      type: object
+      required: [items, total, unread, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Notification" }
+        total: { type: integer }
+        unread: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    UnreadCount:
+      type: object
+      required: [unread]
+      properties:
+        unread: { type: integer }
+
+    CreateTransferItem:
+      type: object
+      required: [variantId, quantity]
+      properties:
+        variantId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+
+    CreateTransferInput:
+      type: object
+      required: [fromWarehouseId, toWarehouseId, items]
+      properties:
+        fromWarehouseId: { type: string, format: uuid }
+        toWarehouseId: { type: string, format: uuid }
+        notes: { type: ["string", "null"], maxLength: 500 }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/CreateTransferItem" }
+
+    TransferSummary:
+      type: object
+      required:
+        [id, transferNumber, fromWarehouseName, toWarehouseName, status, itemCount, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        transferNumber: { type: string }
+        fromWarehouseName: { type: ["string", "null"] }
+        toWarehouseName: { type: ["string", "null"] }
+        status: { type: string }
+        itemCount: { type: integer }
+        notes: { type: ["string", "null"] }
+        createdByName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        confirmedAt: { type: ["string", "null"] }
+
+    TransferList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TransferSummary" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    TransferItem:
+      type: object
+      required: [id, variantId, quantity]
+      properties:
+        id: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        productName: { type: ["string", "null"] }
+        sku: { type: ["string", "null"] }
+        variantLabel: { type: ["string", "null"] }
+        quantity: { type: integer }
+
+    TransferDetail:
+      allOf:
+        - $ref: "#/components/schemas/TransferSummary"
+        - type: object
+          required: [items]
+          properties:
+            fromWarehouseId: { type: string, format: uuid }
+            toWarehouseId: { type: string, format: uuid }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/TransferItem" }
+
+    CreateStockCountInput:
+      type: object
+      required: [warehouseId]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        notes: { type: ["string", "null"], maxLength: 500 }
+
+    UpdateStockCountItemEntry:
+      type: object
+      required: [itemId, countedQuantity]
+      properties:
+        itemId: { type: string, format: uuid }
+        countedQuantity: { type: integer, minimum: 0 }
+
+    UpdateStockCountItemsInput:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/UpdateStockCountItemEntry" }
+
+    StockCountSummary:
+      type: object
+      required: [id, countNumber, warehouseName, status, itemCount, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        countNumber: { type: string }
+        warehouseName: { type: ["string", "null"] }
+        status: { type: string }
+        itemCount: { type: integer }
+        notes: { type: ["string", "null"] }
+        createdByName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"] }
+
+    StockCountList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/StockCountSummary" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    StockCountItem:
+      type: object
+      required: [id, variantId, expectedQuantity]
+      properties:
+        id: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        productName: { type: ["string", "null"] }
+        sku: { type: ["string", "null"] }
+        variantLabel: { type: ["string", "null"] }
+        expectedQuantity: { type: integer }
+        countedQuantity: { type: ["integer", "null"] }
+
+    StockCountDetail:
+      allOf:
+        - $ref: "#/components/schemas/StockCountSummary"
+        - type: object
+          required: [items]
+          properties:
+            warehouseId: { type: string, format: uuid }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/StockCountItem" }

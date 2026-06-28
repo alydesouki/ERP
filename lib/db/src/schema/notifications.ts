@@ -1,4 +1,14 @@
-import { boolean, index, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  index,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { storesTable } from "./stores";
 import { usersTable } from "./users";
 
@@ -43,6 +53,12 @@ export const notificationsTable = pgTable(
   (table) => [
     index("notifications_user_read_idx").on(table.userId, table.isRead, table.createdAt),
     index("notifications_store_idx").on(table.storeId),
+    // One active (unread) notification per dedupe key per user. Marking a
+    // notification read frees the key so the alert can re-fire later. This also
+    // makes concurrent refresh calls safe via onConflictDoNothing.
+    uniqueIndex("notifications_active_dedupe_idx")
+      .on(table.userId, table.dedupeKey)
+      .where(sql`${table.isRead} = false AND ${table.dedupeKey} IS NOT NULL`),
   ],
 );
 

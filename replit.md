@@ -1,6 +1,8 @@
 # نظام نقاط البيع (Shoe Retail POS)
 
-Multi-tenant, Arabic-first (RTL) SaaS point-of-sale system for shoe retail stores. **Phase 1 (Foundation)** and **Phase 2 (Core Inventory)** are implemented. Phase 1: run-once store setup, JWT auth with lockout, RTL app shell, Users & Roles RBAC, immutable audit logs. Phase 2: master data (categories/brands/colors/sizes), products + variants with auto SKU/barcode, warehouses, cached per-warehouse stock, immutable inventory movement log, manual stock adjustments (ADJUSTMENT_IN/OUT), and Arabic/substring product search.
+Multi-tenant, Arabic-first (RTL) SaaS point-of-sale and ERP system for shoe retail stores. **All phases (1–7) are implemented and typecheck-clean.** Foundation: run-once store setup, JWT auth with lockout, RTL app shell, Users & Roles RBAC, immutable audit logs. Core inventory: master data (categories/brands/colors/sizes), products + variants with auto SKU/barcode, warehouses, cached per-warehouse stock, immutable movement log, manual adjustments, Arabic/substring search. Operations: sales/POS (invoices, payments, returns, suspended sales, history), purchases (invoices, payments, returns), customers/suppliers with statements + payments, treasury (accounts, sessions, transactions), double-entry accounting, finance (expenses, employees, salaries, advances, owner equity), dashboard KPIs + charts, reports hub, per-user notifications with bell, settings (store/tax/receipt + document number sequences), warehouse transfers, and stock-count sessions.
+
+Full system reference: see `SYSTEM_DOCUMENTATION.md`.
 
 ## Run & Operate
 
@@ -42,7 +44,9 @@ Phase 1 capabilities: first-run store setup wizard; admin/staff login with faile
 
 Phase 2 capabilities: master data CRUD (categories, brands, colors, sizes); products with variants and auto-generated SKU + EAN-13 barcode; warehouses CRUD; per-warehouse cached stock view; manual stock adjustments (ADJUSTMENT_IN/OUT) that write immutable movements with running balance and sync cached quantity in one transaction; immutable movement log viewer; Arabic/substring product search.
 
-**Deferred to a Phase 2 follow-up (not built, awaiting approval):** warehouse transfers (paired TRANSFER_OUT/TRANSFER_IN movements) and the full stock-count session workflow (§9.7). SALE/PURCHASE movements arrive in later phases. The movement-type enum already includes all these values.
+Phase 3–6 capabilities (operations + finance): sales/POS (invoices, line items, payments, returns, suspended sales, history) with each sale atomically writing inventory OUT movements, treasury IN, double-entry journal (sales revenue + COGS), and customer balance; purchases (invoices, payments, returns) atomically writing inventory IN, treasury OUT / supplier credit, and journal entries; customers & suppliers with running statements + payments; treasury (accounts auto-seeded, cash sessions open/close, transactions, balance sync); double-entry accounting (chart of accounts, journal entries, ledger); finance (expense categories + expenses, employees, salary records, advances, owner equity deposits/withdrawals) each posting treasury + accounting; dashboard KPIs + charts; reports hub (sales, purchases, inventory, P&L, treasury, customer/supplier statements, low stock).
+
+Phase 7 capabilities: per-user notifications (LOW_STOCK / NEGATIVE_TREASURY / CUSTOMER_DEBT / SUPPLIER_DEBT) deduped by an active-key partial unique index, with a polling bell (unread count, mark read/all, refresh); settings (store profile, tax, receipt format, business rules) + editable document number sequences; warehouse transfers (paired TRANSFER_OUT on create → TRANSFER_IN on complete, reversible on cancel); and stock-count sessions (snapshot expected qty on open → STOCK_COUNT_CORRECTION movements on complete).
 
 ## User preferences
 

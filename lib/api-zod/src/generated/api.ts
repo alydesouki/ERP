@@ -2289,3 +2289,1534 @@ export const DeleteSuspendedOrderParams = zod.object({
 export const DeleteSuspendedOrderResponse = zod.void()
 
 
+/**
+ * @summary Purchase history (paginated, filterable)
+ */
+export const listPurchasesQueryPageDefault = 1;
+
+export const listPurchasesQueryPageSizeDefault = 20;
+export const listPurchasesQueryPageSizeMax = 100;
+
+
+
+export const ListPurchasesQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listPurchasesQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listPurchasesQueryPageSizeMax).default(listPurchasesQueryPageSizeDefault),
+  "search": zod.coerce.string().optional(),
+  "supplierId": zod.coerce.string().uuid().optional(),
+  "status": zod.coerce.string().optional(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional()
+})
+
+export const ListPurchasesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "invoiceNumber": zod.string(),
+  "supplierInvoiceNumber": zod.string().nullish(),
+  "supplierId": zod.string().uuid(),
+  "supplierName": zod.string().nullish(),
+  "warehouseId": zod.string().uuid(),
+  "warehouseName": zod.string().nullish(),
+  "invoiceDate": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "subtotal": zod.string(),
+  "taxAmount": zod.string(),
+  "totalAmount": zod.string(),
+  "amountPaid": zod.string(),
+  "remainingBalance": zod.string(),
+  "status": zod.string(),
+  "returnStatus": zod.string(),
+  "notes": zod.string().nullish(),
+  "userName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Create a purchase (atomic invoice + inventory + treasury + accounting)
+ */
+export const createPurchaseBodyDiscountAmountDefault = 0;
+export const createPurchaseBodyDiscountAmountMin = 0;
+
+export const createPurchaseBodyTaxAmountDefault = 0;
+export const createPurchaseBodyTaxAmountMin = 0;
+
+
+export const createPurchaseBodyItemsItemCostPriceMin = 0;
+
+
+export const createPurchaseBodyPaymentsItemAmountMin = 0;
+
+
+
+export const CreatePurchaseBody = zod.object({
+  "supplierId": zod.string().uuid(),
+  "warehouseId": zod.string().uuid(),
+  "supplierInvoiceNumber": zod.string().nullish(),
+  "invoiceDate": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "discountAmount": zod.number().min(createPurchaseBodyDiscountAmountMin).default(createPurchaseBodyDiscountAmountDefault),
+  "taxAmount": zod.number().min(createPurchaseBodyTaxAmountMin).default(createPurchaseBodyTaxAmountDefault),
+  "notes": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "quantity": zod.number().min(1),
+  "costPrice": zod.number().min(createPurchaseBodyItemsItemCostPriceMin)
+})).min(1),
+  "payments": zod.array(zod.object({
+  "method": zod.enum(['CASH', 'CARD', 'INSTAPAY', 'WALLET', 'CREDIT']),
+  "amount": zod.number().min(createPurchaseBodyPaymentsItemAmountMin),
+  "treasuryAccountId": zod.string().uuid().nullish()
+}))
+})
+
+export const CreatePurchaseResponse = zod.object({
+  "id": zod.string().uuid(),
+  "invoiceNumber": zod.string(),
+  "supplierInvoiceNumber": zod.string().nullish(),
+  "supplierId": zod.string().uuid(),
+  "supplierName": zod.string().nullish(),
+  "warehouseId": zod.string().uuid(),
+  "warehouseName": zod.string().nullish(),
+  "invoiceDate": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "subtotal": zod.string(),
+  "taxAmount": zod.string(),
+  "totalAmount": zod.string(),
+  "amountPaid": zod.string(),
+  "remainingBalance": zod.string(),
+  "status": zod.string(),
+  "returnStatus": zod.string(),
+  "notes": zod.string().nullish(),
+  "userName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "sku": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "productName": zod.string().nullish(),
+  "colorName": zod.string().nullish(),
+  "sizeName": zod.string().nullish(),
+  "quantity": zod.number(),
+  "costPrice": zod.string(),
+  "lineTotal": zod.string(),
+  "returnedQuantity": zod.number().optional()
+})),
+  "payments": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "method": zod.string(),
+  "treasuryAccountId": zod.string().uuid().nullish(),
+  "accountName": zod.string().nullish(),
+  "amount": zod.string(),
+  "createdAt": zod.coerce.date().optional()
+}))
+}))
+
+
+/**
+ * @summary Purchase detail (items + payments)
+ */
+export const GetPurchaseParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetPurchaseResponse = zod.object({
+  "id": zod.string().uuid(),
+  "invoiceNumber": zod.string(),
+  "supplierInvoiceNumber": zod.string().nullish(),
+  "supplierId": zod.string().uuid(),
+  "supplierName": zod.string().nullish(),
+  "warehouseId": zod.string().uuid(),
+  "warehouseName": zod.string().nullish(),
+  "invoiceDate": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "subtotal": zod.string(),
+  "taxAmount": zod.string(),
+  "totalAmount": zod.string(),
+  "amountPaid": zod.string(),
+  "remainingBalance": zod.string(),
+  "status": zod.string(),
+  "returnStatus": zod.string(),
+  "notes": zod.string().nullish(),
+  "userName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "sku": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "productName": zod.string().nullish(),
+  "colorName": zod.string().nullish(),
+  "sizeName": zod.string().nullish(),
+  "quantity": zod.number(),
+  "costPrice": zod.string(),
+  "lineTotal": zod.string(),
+  "returnedQuantity": zod.number().optional()
+})),
+  "payments": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "method": zod.string(),
+  "treasuryAccountId": zod.string().uuid().nullish(),
+  "accountName": zod.string().nullish(),
+  "amount": zod.string(),
+  "createdAt": zod.coerce.date().optional()
+}))
+}))
+
+
+/**
+ * @summary Purchase returns history
+ */
+export const listPurchaseReturnsQueryPageDefault = 1;
+
+export const listPurchaseReturnsQueryPageSizeDefault = 20;
+export const listPurchaseReturnsQueryPageSizeMax = 100;
+
+
+
+export const ListPurchaseReturnsQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listPurchaseReturnsQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listPurchaseReturnsQueryPageSizeMax).default(listPurchaseReturnsQueryPageSizeDefault),
+  "purchaseId": zod.coerce.string().uuid().optional()
+})
+
+export const ListPurchaseReturnsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "returnNumber": zod.string(),
+  "purchaseId": zod.string().uuid(),
+  "invoiceNumber": zod.string().nullish(),
+  "warehouseId": zod.string().uuid().optional(),
+  "totalAmount": zod.string(),
+  "reason": zod.string().nullish(),
+  "userName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Create a purchase return (reverses inventory + treasury + accounting)
+ */
+export const createPurchaseReturnBodyRefundMethodDefault = `CREDIT`;
+
+
+
+export const CreatePurchaseReturnBody = zod.object({
+  "purchaseId": zod.string().uuid(),
+  "refundMethod": zod.enum(['CASH', 'CARD', 'INSTAPAY', 'WALLET', 'CREDIT']).default(createPurchaseReturnBodyRefundMethodDefault),
+  "treasuryAccountId": zod.string().uuid().nullish(),
+  "reason": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "purchaseItemId": zod.string().uuid(),
+  "quantity": zod.number().min(1)
+})).min(1)
+})
+
+export const CreatePurchaseReturnResponse = zod.object({
+  "id": zod.string().uuid(),
+  "returnNumber": zod.string(),
+  "purchaseId": zod.string().uuid(),
+  "invoiceNumber": zod.string().nullish(),
+  "warehouseId": zod.string().uuid().optional(),
+  "totalAmount": zod.string(),
+  "reason": zod.string().nullish(),
+  "userName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "sku": zod.string().nullish(),
+  "productName": zod.string().nullish(),
+  "quantity": zod.number(),
+  "costPrice": zod.string(),
+  "lineTotal": zod.string()
+}))
+}))
+
+
+/**
+ * @summary Purchase return detail
+ */
+export const GetPurchaseReturnParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetPurchaseReturnResponse = zod.object({
+  "id": zod.string().uuid(),
+  "returnNumber": zod.string(),
+  "purchaseId": zod.string().uuid(),
+  "invoiceNumber": zod.string().nullish(),
+  "warehouseId": zod.string().uuid().optional(),
+  "totalAmount": zod.string(),
+  "reason": zod.string().nullish(),
+  "userName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "sku": zod.string().nullish(),
+  "productName": zod.string().nullish(),
+  "quantity": zod.number(),
+  "costPrice": zod.string(),
+  "lineTotal": zod.string()
+}))
+}))
+
+
+/**
+ * @summary List expense categories
+ */
+export const listExpenseCategoriesQueryIncludeInactiveDefault = false;
+
+export const ListExpenseCategoriesQueryParams = zod.object({
+  "includeInactive": zod.coerce.boolean().default(listExpenseCategoriesQueryIncludeInactiveDefault)
+})
+
+export const ListExpenseCategoriesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListExpenseCategoriesResponse = zod.array(ListExpenseCategoriesResponseItem)
+
+
+/**
+ * @summary Create expense category
+ */
+
+
+
+export const CreateExpenseCategoryBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const CreateExpenseCategoryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update expense category
+ */
+export const UpdateExpenseCategoryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateExpenseCategoryBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateExpenseCategoryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate expense category
+ */
+export const DeleteExpenseCategoryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteExpenseCategoryResponse = zod.void()
+
+
+/**
+ * @summary List expenses
+ */
+export const listExpensesQueryPageDefault = 1;
+
+export const listExpensesQueryPageSizeDefault = 20;
+export const listExpensesQueryPageSizeMax = 100;
+
+
+
+export const ListExpensesQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listExpensesQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listExpensesQueryPageSizeMax).default(listExpensesQueryPageSizeDefault),
+  "categoryId": zod.coerce.string().uuid().optional(),
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional()
+})
+
+export const ListExpensesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string().nullish(),
+  "amount": zod.string(),
+  "expenseDate": zod.coerce.date(),
+  "description": zod.string().nullish(),
+  "treasuryAccountId": zod.string().uuid(),
+  "recordedBy": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Record an expense (treasury OUT + journal)
+ */
+export const createExpenseBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateExpenseBody = zod.object({
+  "categoryId": zod.string().uuid(),
+  "amount": zod.number().gt(createExpenseBodyAmountExclusiveMin),
+  "expenseDate": zod.coerce.date(),
+  "treasuryAccountId": zod.string().uuid(),
+  "description": zod.string().nullish()
+})
+
+export const CreateExpenseResponse = zod.object({
+  "id": zod.string().uuid(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string().nullish(),
+  "amount": zod.string(),
+  "expenseDate": zod.coerce.date(),
+  "description": zod.string().nullish(),
+  "treasuryAccountId": zod.string().uuid(),
+  "recordedBy": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List employees
+ */
+export const listEmployeesQueryIncludeInactiveDefault = false;
+
+export const ListEmployeesQueryParams = zod.object({
+  "includeInactive": zod.coerce.boolean().default(listEmployeesQueryIncludeInactiveDefault)
+})
+
+export const ListEmployeesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "userId": zod.string().nullish(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "jobTitle": zod.string().nullish(),
+  "monthlySalary": zod.string(),
+  "advanceBalance": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListEmployeesResponse = zod.array(ListEmployeesResponseItem)
+
+
+/**
+ * @summary Create employee
+ */
+
+export const createEmployeeBodyMonthlySalaryDefault = 0;
+export const createEmployeeBodyMonthlySalaryMin = 0;
+
+
+
+export const CreateEmployeeBody = zod.object({
+  "name": zod.string().min(1),
+  "phone": zod.string().nullish(),
+  "jobTitle": zod.string().nullish(),
+  "monthlySalary": zod.number().min(createEmployeeBodyMonthlySalaryMin).default(createEmployeeBodyMonthlySalaryDefault),
+  "userId": zod.string().uuid().nullish()
+})
+
+export const CreateEmployeeResponse = zod.object({
+  "id": zod.string().uuid(),
+  "userId": zod.string().nullish(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "jobTitle": zod.string().nullish(),
+  "monthlySalary": zod.string(),
+  "advanceBalance": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update employee
+ */
+export const UpdateEmployeeParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+export const updateEmployeeBodyMonthlySalaryMin = 0;
+
+
+
+export const UpdateEmployeeBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "phone": zod.string().nullish(),
+  "jobTitle": zod.string().nullish(),
+  "monthlySalary": zod.number().min(updateEmployeeBodyMonthlySalaryMin).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateEmployeeResponse = zod.object({
+  "id": zod.string().uuid(),
+  "userId": zod.string().nullish(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "jobTitle": zod.string().nullish(),
+  "monthlySalary": zod.string(),
+  "advanceBalance": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate employee
+ */
+export const DeleteEmployeeParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteEmployeeResponse = zod.void()
+
+
+/**
+ * @summary List employee advances
+ */
+export const listAdvancesQueryPageDefault = 1;
+
+export const listAdvancesQueryPageSizeDefault = 20;
+export const listAdvancesQueryPageSizeMax = 100;
+
+
+
+export const ListAdvancesQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listAdvancesQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listAdvancesQueryPageSizeMax).default(listAdvancesQueryPageSizeDefault),
+  "employeeId": zod.coerce.string().uuid().optional()
+})
+
+export const ListAdvancesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "employeeId": zod.string().uuid(),
+  "employeeName": zod.string().nullish(),
+  "amount": zod.string(),
+  "advanceDate": zod.coerce.date(),
+  "notes": zod.string().nullish(),
+  "treasuryAccountId": zod.string().uuid(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Give an employee advance (treasury OUT + journal)
+ */
+export const createAdvanceBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateAdvanceBody = zod.object({
+  "employeeId": zod.string().uuid(),
+  "amount": zod.number().gt(createAdvanceBodyAmountExclusiveMin),
+  "advanceDate": zod.coerce.date(),
+  "treasuryAccountId": zod.string().uuid(),
+  "notes": zod.string().nullish()
+})
+
+export const CreateAdvanceResponse = zod.object({
+  "id": zod.string().uuid(),
+  "employeeId": zod.string().uuid(),
+  "employeeName": zod.string().nullish(),
+  "amount": zod.string(),
+  "advanceDate": zod.coerce.date(),
+  "notes": zod.string().nullish(),
+  "treasuryAccountId": zod.string().uuid(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List salary records
+ */
+export const listSalariesQueryPageDefault = 1;
+
+export const listSalariesQueryPageSizeDefault = 20;
+export const listSalariesQueryPageSizeMax = 100;
+
+
+
+export const ListSalariesQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listSalariesQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listSalariesQueryPageSizeMax).default(listSalariesQueryPageSizeDefault),
+  "employeeId": zod.coerce.string().uuid().optional(),
+  "periodMonth": zod.coerce.string().optional(),
+  "status": zod.enum(['PENDING', 'PAID']).optional()
+})
+
+export const ListSalariesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "employeeId": zod.string().uuid(),
+  "employeeName": zod.string().nullish(),
+  "periodMonth": zod.string(),
+  "baseSalary": zod.string(),
+  "deductions": zod.string(),
+  "bonuses": zod.string(),
+  "netAmount": zod.string(),
+  "status": zod.enum(['PENDING', 'PAID']),
+  "treasuryAccountId": zod.string().nullish(),
+  "paidAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Create a salary record (accrue expense + payable)
+ */
+
+export const createSalaryBodyBaseSalaryMin = 0;
+
+export const createSalaryBodyBonusesDefault = 0;
+export const createSalaryBodyBonusesMin = 0;
+
+export const createSalaryBodyDeductionsDefault = 0;
+export const createSalaryBodyDeductionsMin = 0;
+
+
+
+export const CreateSalaryBody = zod.object({
+  "employeeId": zod.string().uuid(),
+  "periodMonth": zod.string().min(1),
+  "baseSalary": zod.number().min(createSalaryBodyBaseSalaryMin).optional(),
+  "bonuses": zod.number().min(createSalaryBodyBonusesMin).default(createSalaryBodyBonusesDefault),
+  "deductions": zod.number().min(createSalaryBodyDeductionsMin).default(createSalaryBodyDeductionsDefault)
+})
+
+export const CreateSalaryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "employeeId": zod.string().uuid(),
+  "employeeName": zod.string().nullish(),
+  "periodMonth": zod.string(),
+  "baseSalary": zod.string(),
+  "deductions": zod.string(),
+  "bonuses": zod.string(),
+  "netAmount": zod.string(),
+  "status": zod.enum(['PENDING', 'PAID']),
+  "treasuryAccountId": zod.string().nullish(),
+  "paidAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Pay a salary record (treasury OUT + clear payable)
+ */
+export const PaySalaryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const PaySalaryBody = zod.object({
+  "treasuryAccountId": zod.string().uuid()
+})
+
+export const PaySalaryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "employeeId": zod.string().uuid(),
+  "employeeName": zod.string().nullish(),
+  "periodMonth": zod.string(),
+  "baseSalary": zod.string(),
+  "deductions": zod.string(),
+  "bonuses": zod.string(),
+  "netAmount": zod.string(),
+  "status": zod.enum(['PENDING', 'PAID']),
+  "treasuryAccountId": zod.string().nullish(),
+  "paidAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List owner withdrawals/deposits
+ */
+export const listEquityMovementsQueryPageDefault = 1;
+
+export const listEquityMovementsQueryPageSizeDefault = 20;
+export const listEquityMovementsQueryPageSizeMax = 100;
+
+
+
+export const ListEquityMovementsQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listEquityMovementsQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listEquityMovementsQueryPageSizeMax).default(listEquityMovementsQueryPageSizeDefault),
+  "type": zod.enum(['WITHDRAWAL', 'DEPOSIT']).optional()
+})
+
+export const ListEquityMovementsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "type": zod.enum(['WITHDRAWAL', 'DEPOSIT']),
+  "amount": zod.string(),
+  "movementDate": zod.coerce.date(),
+  "description": zod.string().nullish(),
+  "treasuryAccountId": zod.string().uuid(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Owner withdrawal or capital deposit
+ */
+export const createEquityMovementBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateEquityMovementBody = zod.object({
+  "type": zod.enum(['WITHDRAWAL', 'DEPOSIT']),
+  "amount": zod.number().gt(createEquityMovementBodyAmountExclusiveMin),
+  "movementDate": zod.coerce.date(),
+  "treasuryAccountId": zod.string().uuid(),
+  "description": zod.string().nullish()
+})
+
+export const CreateEquityMovementResponse = zod.object({
+  "id": zod.string().uuid(),
+  "type": zod.enum(['WITHDRAWAL', 'DEPOSIT']),
+  "amount": zod.string(),
+  "movementDate": zod.coerce.date(),
+  "description": zod.string().nullish(),
+  "treasuryAccountId": zod.string().uuid(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Real-time dashboard KPI cards
+ */
+export const GetDashboardKpisResponse = zod.object({
+  "todaySales": zod.number(),
+  "todayProfit": zod.number(),
+  "todayPurchases": zod.number(),
+  "todayExpenses": zod.number(),
+  "treasuryBalance": zod.number(),
+  "lowStockCount": zod.number(),
+  "customerDebts": zod.number(),
+  "supplierDebts": zod.number()
+})
+
+
+/**
+ * @summary Dashboard chart datasets
+ */
+export const GetDashboardChartsResponse = zod.object({
+  "dailySales": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.number()
+})),
+  "monthlyRevenue": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.number()
+})),
+  "cashFlow": zod.array(zod.object({
+  "label": zod.string(),
+  "inflow": zod.number(),
+  "outflow": zod.number()
+})),
+  "bestSellingProducts": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.number()
+})),
+  "salesByPaymentMethod": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.number()
+})),
+  "categoryPerformance": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.number()
+}))
+})
+
+
+/**
+ * @summary Sales summary report
+ */
+export const GetSalesSummaryReportQueryParams = zod.object({
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
+  "customerId": zod.coerce.string().uuid().optional(),
+  "paymentMethod": zod.enum(['CASH', 'CARD', 'INSTAPAY', 'WALLET', 'CREDIT']).optional()
+})
+
+export const GetSalesSummaryReportResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "invoiceNumber": zod.string(),
+  "date": zod.string(),
+  "customerName": zod.string().nullish(),
+  "total": zod.string(),
+  "paymentMethod": zod.string().nullish(),
+  "paymentStatus": zod.string()
+})),
+  "count": zod.number(),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Purchases summary report
+ */
+export const GetPurchasesSummaryReportQueryParams = zod.object({
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
+  "supplierId": zod.coerce.string().uuid().optional()
+})
+
+export const GetPurchasesSummaryReportResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "invoiceNumber": zod.string(),
+  "date": zod.string(),
+  "supplierName": zod.string().nullish(),
+  "total": zod.string(),
+  "status": zod.string()
+})),
+  "count": zod.number(),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Inventory stock valuation report
+ */
+export const GetInventoryStockReportQueryParams = zod.object({
+  "warehouseId": zod.coerce.string().uuid().optional(),
+  "categoryId": zod.coerce.string().uuid().optional(),
+  "brandId": zod.coerce.string().uuid().optional()
+})
+
+export const GetInventoryStockReportResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productName": zod.string(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "warehouseName": zod.string().nullish(),
+  "categoryName": zod.string().nullish(),
+  "brandName": zod.string().nullish(),
+  "quantity": zod.number(),
+  "reorderPoint": zod.number().optional(),
+  "cost": zod.string().optional(),
+  "value": zod.number()
+})),
+  "totalValue": zod.number(),
+  "totalQuantity": zod.number()
+})
+
+
+/**
+ * @summary Low stock alert report
+ */
+export const GetLowStockReportQueryParams = zod.object({
+  "warehouseId": zod.coerce.string().uuid().optional()
+})
+
+export const GetLowStockReportResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productName": zod.string(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "warehouseName": zod.string().nullish(),
+  "quantity": zod.number(),
+  "reorderPoint": zod.number(),
+  "shortage": zod.number()
+})),
+  "count": zod.number()
+})
+
+
+/**
+ * @summary Profit & loss statement
+ */
+export const GetProfitLossReportQueryParams = zod.object({
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional()
+})
+
+export const GetProfitLossReportResponse = zod.object({
+  "revenue": zod.number(),
+  "salesReturns": zod.number(),
+  "netRevenue": zod.number(),
+  "cogs": zod.number(),
+  "grossProfit": zod.number(),
+  "expenses": zod.number(),
+  "salaries": zod.number(),
+  "netProfit": zod.number()
+})
+
+
+/**
+ * @summary Treasury movements report
+ */
+export const GetTreasuryReportQueryParams = zod.object({
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
+  "accountId": zod.coerce.string().uuid().optional()
+})
+
+export const GetTreasuryReportResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "date": zod.string(),
+  "accountName": zod.string(),
+  "direction": zod.string(),
+  "amount": zod.string(),
+  "balanceAfter": zod.string(),
+  "referenceType": zod.string()
+})),
+  "totalIn": zod.number(),
+  "totalOut": zod.number()
+})
+
+
+/**
+ * @summary Expense report
+ */
+export const GetExpenseReportQueryParams = zod.object({
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
+  "categoryId": zod.coerce.string().uuid().optional()
+})
+
+export const GetExpenseReportResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "date": zod.string(),
+  "categoryName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "amount": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Top selling products report
+ */
+export const GetTopProductsReportQueryParams = zod.object({
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional()
+})
+
+export const GetTopProductsReportResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productName": zod.string(),
+  "sku": zod.string().nullish(),
+  "quantitySold": zod.number(),
+  "revenue": zod.number()
+}))
+})
+
+
+/**
+ * @summary Get store settings
+ */
+export const GetStoreSettingsResponse = zod.object({
+  "id": zod.string().uuid(),
+  "currency": zod.string(),
+  "taxEnabled": zod.boolean(),
+  "taxRate": zod.string(),
+  "taxInclusive": zod.boolean(),
+  "receiptSize": zod.string(),
+  "receiptFooter": zod.string().nullish(),
+  "numeralFormat": zod.string(),
+  "allowNegativeStock": zod.boolean(),
+  "allowBelowCostDiscount": zod.boolean(),
+  "allowNegativeTreasury": zod.boolean(),
+  "requireSessionForCash": zod.boolean()
+})
+
+
+/**
+ * @summary Update store settings
+ */
+export const updateStoreSettingsBodyCurrencyMax = 8;
+
+export const updateStoreSettingsBodyTaxRateMin = 0;
+export const updateStoreSettingsBodyTaxRateMax = 100;
+
+export const updateStoreSettingsBodyReceiptFooterMax = 500;
+
+
+
+export const UpdateStoreSettingsBody = zod.object({
+  "currency": zod.string().min(1).max(updateStoreSettingsBodyCurrencyMax).optional(),
+  "taxEnabled": zod.boolean().optional(),
+  "taxRate": zod.number().min(updateStoreSettingsBodyTaxRateMin).max(updateStoreSettingsBodyTaxRateMax).optional(),
+  "taxInclusive": zod.boolean().optional(),
+  "receiptSize": zod.enum(['58mm', '80mm', 'A4']).optional(),
+  "receiptFooter": zod.string().max(updateStoreSettingsBodyReceiptFooterMax).nullish(),
+  "numeralFormat": zod.enum(['western', 'arabic']).optional(),
+  "allowNegativeStock": zod.boolean().optional(),
+  "allowBelowCostDiscount": zod.boolean().optional(),
+  "allowNegativeTreasury": zod.boolean().optional(),
+  "requireSessionForCash": zod.boolean().optional()
+})
+
+export const UpdateStoreSettingsResponse = zod.object({
+  "id": zod.string().uuid(),
+  "currency": zod.string(),
+  "taxEnabled": zod.boolean(),
+  "taxRate": zod.string(),
+  "taxInclusive": zod.boolean(),
+  "receiptSize": zod.string(),
+  "receiptFooter": zod.string().nullish(),
+  "numeralFormat": zod.string(),
+  "allowNegativeStock": zod.boolean(),
+  "allowBelowCostDiscount": zod.boolean(),
+  "allowNegativeTreasury": zod.boolean(),
+  "requireSessionForCash": zod.boolean()
+})
+
+
+/**
+ * @summary List document number sequences
+ */
+export const ListNumberSequencesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.string(),
+  "prefix": zod.string(),
+  "padding": zod.number(),
+  "nextValue": zod.number()
+})
+export const ListNumberSequencesResponse = zod.array(ListNumberSequencesResponseItem)
+
+
+/**
+ * @summary Update a document number sequence prefix/padding
+ */
+export const UpdateNumberSequenceParams = zod.object({
+  "kind": zod.coerce.string()
+})
+
+export const updateNumberSequenceBodyPrefixMax = 12;
+
+export const updateNumberSequenceBodyPaddingMax = 10;
+
+
+
+export const UpdateNumberSequenceBody = zod.object({
+  "prefix": zod.string().max(updateNumberSequenceBodyPrefixMax).optional(),
+  "padding": zod.number().min(1).max(updateNumberSequenceBodyPaddingMax).optional()
+})
+
+export const UpdateNumberSequenceResponse = zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.string(),
+  "prefix": zod.string(),
+  "padding": zod.number(),
+  "nextValue": zod.number()
+})
+
+
+/**
+ * @summary List notifications for the current user
+ */
+export const listNotificationsQueryPageDefault = 1;
+
+export const listNotificationsQueryPageSizeDefault = 20;
+export const listNotificationsQueryPageSizeMax = 100;
+
+
+
+export const ListNotificationsQueryParams = zod.object({
+  "unreadOnly": zod.coerce.boolean().optional(),
+  "page": zod.coerce.number().min(1).default(listNotificationsQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listNotificationsQueryPageSizeMax).default(listNotificationsQueryPageSizeDefault)
+})
+
+export const ListNotificationsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "type": zod.string(),
+  "severity": zod.string(),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "referenceType": zod.string().nullish(),
+  "referenceId": zod.string().nullish(),
+  "isRead": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "readAt": zod.string().nullish()
+})),
+  "total": zod.number(),
+  "unread": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Unread notification count for the current user
+ */
+export const GetUnreadNotificationCountResponse = zod.object({
+  "unread": zod.number()
+})
+
+
+/**
+ * @summary Recompute alert notifications (low stock, debts, negative treasury)
+ */
+export const RefreshNotificationsResponse = zod.object({
+  "unread": zod.number()
+})
+
+
+/**
+ * @summary Mark all notifications as read
+ */
+export const MarkAllNotificationsReadResponse = zod.object({
+  "unread": zod.number()
+})
+
+
+/**
+ * @summary Mark a notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const MarkNotificationReadResponse = zod.object({
+  "id": zod.string().uuid(),
+  "type": zod.string(),
+  "severity": zod.string(),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "referenceType": zod.string().nullish(),
+  "referenceId": zod.string().nullish(),
+  "isRead": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "readAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary List warehouse transfers
+ */
+export const listTransfersQueryPageDefault = 1;
+
+export const listTransfersQueryPageSizeDefault = 20;
+export const listTransfersQueryPageSizeMax = 100;
+
+
+
+export const ListTransfersQueryParams = zod.object({
+  "status": zod.enum(['PENDING', 'COMPLETED', 'CANCELLED']).optional(),
+  "page": zod.coerce.number().min(1).default(listTransfersQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listTransfersQueryPageSizeMax).default(listTransfersQueryPageSizeDefault)
+})
+
+export const ListTransfersResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "transferNumber": zod.string(),
+  "fromWarehouseName": zod.string().nullable(),
+  "toWarehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "confirmedAt": zod.string().nullish()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Create a warehouse transfer (books TRANSFER_OUT from source)
+ */
+export const createTransferBodyNotesMax = 500;
+
+
+
+
+
+export const CreateTransferBody = zod.object({
+  "fromWarehouseId": zod.string().uuid(),
+  "toWarehouseId": zod.string().uuid(),
+  "notes": zod.string().max(createTransferBodyNotesMax).nullish(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "quantity": zod.number().min(1)
+})).min(1)
+})
+
+export const CreateTransferResponse = zod.object({
+  "id": zod.string().uuid(),
+  "transferNumber": zod.string(),
+  "fromWarehouseName": zod.string().nullable(),
+  "toWarehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "confirmedAt": zod.string().nullish()
+}).and(zod.object({
+  "fromWarehouseId": zod.string().uuid().optional(),
+  "toWarehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "quantity": zod.number()
+}))
+}))
+
+
+/**
+ * @summary Get a transfer with its items
+ */
+export const GetTransferParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetTransferResponse = zod.object({
+  "id": zod.string().uuid(),
+  "transferNumber": zod.string(),
+  "fromWarehouseName": zod.string().nullable(),
+  "toWarehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "confirmedAt": zod.string().nullish()
+}).and(zod.object({
+  "fromWarehouseId": zod.string().uuid().optional(),
+  "toWarehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "quantity": zod.number()
+}))
+}))
+
+
+/**
+ * @summary Confirm receipt of a transfer (books TRANSFER_IN to destination)
+ */
+export const CompleteTransferParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const CompleteTransferResponse = zod.object({
+  "id": zod.string().uuid(),
+  "transferNumber": zod.string(),
+  "fromWarehouseName": zod.string().nullable(),
+  "toWarehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "confirmedAt": zod.string().nullish()
+}).and(zod.object({
+  "fromWarehouseId": zod.string().uuid().optional(),
+  "toWarehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "quantity": zod.number()
+}))
+}))
+
+
+/**
+ * @summary Cancel a pending transfer (reverses TRANSFER_OUT)
+ */
+export const CancelTransferParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const CancelTransferResponse = zod.object({
+  "id": zod.string().uuid(),
+  "transferNumber": zod.string(),
+  "fromWarehouseName": zod.string().nullable(),
+  "toWarehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "confirmedAt": zod.string().nullish()
+}).and(zod.object({
+  "fromWarehouseId": zod.string().uuid().optional(),
+  "toWarehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "quantity": zod.number()
+}))
+}))
+
+
+/**
+ * @summary List stock-count sessions
+ */
+export const listStockCountsQueryPageDefault = 1;
+
+export const listStockCountsQueryPageSizeDefault = 20;
+export const listStockCountsQueryPageSizeMax = 100;
+
+
+
+export const ListStockCountsQueryParams = zod.object({
+  "status": zod.enum(['OPEN', 'COMPLETED', 'CANCELLED']).optional(),
+  "page": zod.coerce.number().min(1).default(listStockCountsQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listStockCountsQueryPageSizeMax).default(listStockCountsQueryPageSizeDefault)
+})
+
+export const ListStockCountsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "countNumber": zod.string(),
+  "warehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Open a stock-count session (snapshots expected quantities)
+ */
+export const createStockCountBodyNotesMax = 500;
+
+
+
+export const CreateStockCountBody = zod.object({
+  "warehouseId": zod.string().uuid(),
+  "notes": zod.string().max(createStockCountBodyNotesMax).nullish()
+})
+
+export const CreateStockCountResponse = zod.object({
+  "id": zod.string().uuid(),
+  "countNumber": zod.string(),
+  "warehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+}).and(zod.object({
+  "warehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "expectedQuantity": zod.number(),
+  "countedQuantity": zod.number().nullish()
+}))
+}))
+
+
+/**
+ * @summary Get a stock count with its items
+ */
+export const GetStockCountParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetStockCountResponse = zod.object({
+  "id": zod.string().uuid(),
+  "countNumber": zod.string(),
+  "warehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+}).and(zod.object({
+  "warehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "expectedQuantity": zod.number(),
+  "countedQuantity": zod.number().nullish()
+}))
+}))
+
+
+/**
+ * @summary Record counted quantities for a stock count
+ */
+export const UpdateStockCountItemsParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const updateStockCountItemsBodyItemsItemCountedQuantityMin = 0;
+
+
+
+
+export const UpdateStockCountItemsBody = zod.object({
+  "items": zod.array(zod.object({
+  "itemId": zod.string().uuid(),
+  "countedQuantity": zod.number().min(updateStockCountItemsBodyItemsItemCountedQuantityMin)
+})).min(1)
+})
+
+export const UpdateStockCountItemsResponse = zod.object({
+  "id": zod.string().uuid(),
+  "countNumber": zod.string(),
+  "warehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+}).and(zod.object({
+  "warehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "expectedQuantity": zod.number(),
+  "countedQuantity": zod.number().nullish()
+}))
+}))
+
+
+/**
+ * @summary Apply counted quantities as STOCK_COUNT_CORRECTION movements
+ */
+export const CompleteStockCountParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const CompleteStockCountResponse = zod.object({
+  "id": zod.string().uuid(),
+  "countNumber": zod.string(),
+  "warehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+}).and(zod.object({
+  "warehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "expectedQuantity": zod.number(),
+  "countedQuantity": zod.number().nullish()
+}))
+}))
+
+
+/**
+ * @summary Cancel an open stock count
+ */
+export const CancelStockCountParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const CancelStockCountResponse = zod.object({
+  "id": zod.string().uuid(),
+  "countNumber": zod.string(),
+  "warehouseName": zod.string().nullable(),
+  "status": zod.string(),
+  "itemCount": zod.number(),
+  "notes": zod.string().nullish(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.string().nullish()
+}).and(zod.object({
+  "warehouseId": zod.string().uuid().optional(),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "productName": zod.string().nullish(),
+  "sku": zod.string().nullish(),
+  "variantLabel": zod.string().nullish(),
+  "expectedQuantity": zod.number(),
+  "countedQuantity": zod.number().nullish()
+}))
+}))
+
+

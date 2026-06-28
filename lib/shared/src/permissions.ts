@@ -65,6 +65,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: "purchases.create", labelAr: "إنشاء فاتورة شراء" },
       { key: "purchases.edit", labelAr: "تعديل المشتريات" },
       { key: "purchases.delete", labelAr: "حذف المشتريات" },
+      { key: "purchases.return", labelAr: "مرتجعات المشتريات" },
     ],
   },
   {

@@ -25,7 +25,7 @@ import {
   ListInvoicesQueryParams,
   ListSalesReturnsQueryParams,
   LookupInvoiceQueryParams,
-  SuspendedOrderInput as SuspendedOrderInputSchema,
+  CreateSuspendedOrderBody,
 } from "@workspace/api-zod";
 import { writeAuditLog } from "../lib/audit";
 import { ensureStoreFinancials, TREASURY_TYPE_TO_ACCOUNT_CODE } from "../lib/seed";
@@ -37,8 +37,6 @@ import { cents, money, toNum } from "../lib/money";
 import { requireAuth, requirePermission } from "../middleware/auth";
 
 const router: IRouter = Router();
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function clientIp(req: Request): string | null {
   return req.ip ?? null;
@@ -516,10 +514,8 @@ router.post("/sales/invoices", requireAuth, requirePermission("sales.create"), a
       }
 
       // Accounting: revenue recognition + COGS.
-      const revenueLines = [
-        ...nonCreditDrawerDebits(computed, nonCredit, changeDue, totalAmount, creditAmount),
-      ];
-      // Build debit side from applied non-credit payments + AR for credit.
+      // Build the debit side from applied non-credit payments (per drawer asset
+      // account) plus Accounts Receivable for the credit portion.
       const debitByCode = new Map<string, number>();
       let applyChange = changeDue;
       for (const p of nonCredit) {
@@ -536,7 +532,6 @@ router.post("/sales/invoices", requireAuth, requirePermission("sales.create"), a
       if (creditAmount > 0) {
         debitByCode.set("1100", (debitByCode.get("1100") ?? 0) + creditAmount);
       }
-      void revenueLines;
       const saleLines = [
         ...[...debitByCode.entries()].map(([code, amount]) => ({ code, debit: amount })),
         { code: "4000", credit: totalAmount },
@@ -584,18 +579,7 @@ router.post("/sales/invoices", requireAuth, requirePermission("sales.create"), a
   }
 });
 
-// Placeholder kept for structural clarity; debit composition is inlined above.
-function nonCreditDrawerDebits(
-  _computed: unknown,
-  _nonCredit: unknown,
-  _changeDue: number,
-  _total: number,
-  _credit: number,
-): never[] {
-  return [];
-}
-
-function handleSaleError(err: Error, res: Parameters<typeof Router>[0] extends never ? never : import("express").Response): boolean {
+function handleSaleError(err: Error, res: import("express").Response): boolean {
   const map: Record<string, [number, string]> = {
     WAREHOUSE_NOT_FOUND: [404, "المخزن غير موجود"],
     VARIANT_NOT_FOUND: [404, "أحد المنتجات غير موجود"],
@@ -1017,7 +1001,7 @@ router.get("/suspended-orders", requireAuth, requirePermission("sales.create"), 
 });
 
 router.post("/suspended-orders", requireAuth, requirePermission("sales.create"), async (req, res) => {
-  const parsed = SuspendedOrderInputSchema.safeParse(req.body);
+  const parsed = CreateSuspendedOrderBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" });
     return;
@@ -1070,13 +1054,9 @@ router.delete(
       res.status(404).json({ error: "الطلب غير موجود" });
       return;
     }
-    await tx_deleteSuspended(String(req.params["id"]));
+    await db.delete(suspendedOrdersTable).where(eq(suspendedOrdersTable.id, existing.id));
     res.status(204).end();
   },
 );
-
-async function tx_deleteSuspended(id: string): Promise<void> {
-  await db.delete(suspendedOrdersTable).where(eq(suspendedOrdersTable.id, id));
-}
 
 export default router;

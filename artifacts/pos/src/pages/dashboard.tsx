@@ -1,39 +1,80 @@
 import { Link } from "wouter";
 import {
   Users,
-  ShieldCheck,
   ScrollText,
   ArrowLeft,
   Activity,
+  TrendingUp,
+  TrendingDown,
+  ShoppingCart,
+  ShoppingBag,
+  Wallet,
+  AlertTriangle,
+  HandCoins,
+  CreditCard,
 } from "lucide-react";
 import {
-  useListUsers,
-  useListRoles,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import {
   useListAuditLogs,
-  getListUsersQueryKey,
-  getListRolesQueryKey,
   getListAuditLogsQueryKey,
+  useGetDashboardKpis,
+  getGetDashboardKpisQueryKey,
+  useGetDashboardCharts,
+  getGetDashboardChartsQueryKey,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 
-const USERS_PARAMS = { page: 1, pageSize: 1, includeInactive: true } as const;
 const AUDIT_PARAMS = { page: 1, pageSize: 6 } as const;
+
+const PAYMENT_LABELS: Record<string, string> = {
+  CASH: "نقدي",
+  CARD: "بطاقة",
+  INSTAPAY: "إنستا باي",
+  WALLET: "محفظة",
+  CREDIT: "آجل",
+};
+
+const PIE_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#14b8a6"];
+
+function money(v: number | null | undefined): string {
+  const n = Number(v ?? 0);
+  return n.toLocaleString("ar-EG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 export function DashboardPage() {
   const { user, hasPermission } = useAuth();
-  const canViewUsers = hasPermission("users.view");
-  const canViewRoles = hasPermission("roles.view");
+  const canViewDashboard = hasPermission("dashboard.view");
   const canViewAudit = hasPermission("audit.view");
 
-  const usersQuery = useListUsers(USERS_PARAMS, {
+  const kpisQuery = useGetDashboardKpis({
     query: {
-      enabled: canViewUsers,
-      queryKey: getListUsersQueryKey(USERS_PARAMS),
+      enabled: canViewDashboard,
+      queryKey: getGetDashboardKpisQueryKey(),
     },
   });
-  const rolesQuery = useListRoles({
-    query: { enabled: canViewRoles, queryKey: getListRolesQueryKey() },
+  const chartsQuery = useGetDashboardCharts({
+    query: {
+      enabled: canViewDashboard,
+      queryKey: getGetDashboardChartsQueryKey(),
+    },
   });
   const auditQuery = useListAuditLogs(AUDIT_PARAMS, {
     query: {
@@ -42,32 +83,65 @@ export function DashboardPage() {
     },
   });
 
-  const stats = [
+  const k = kpisQuery.data;
+  const charts = chartsQuery.data;
+
+  const kpiCards = [
     {
-      label: "إجمالي المستخدمين",
-      value: usersQuery.data?.total ?? 0,
-      icon: <Users className="text-blue-600" size={24} />,
+      label: "مبيعات اليوم",
+      value: money(k?.todaySales),
+      icon: <ShoppingCart size={22} className="text-emerald-600" />,
+      bg: "bg-emerald-100 border-emerald-200",
+    },
+    {
+      label: "ربح اليوم",
+      value: money(k?.todayProfit),
+      icon: <TrendingUp size={22} className="text-green-600" />,
+      bg: "bg-green-100 border-green-200",
+    },
+    {
+      label: "مشتريات اليوم",
+      value: money(k?.todayPurchases),
+      icon: <ShoppingBag size={22} className="text-blue-600" />,
       bg: "bg-blue-100 border-blue-200",
-      href: "/users",
-      visible: canViewUsers,
     },
     {
-      label: "الأدوار المعرّفة",
-      value: rolesQuery.data?.length ?? 0,
-      icon: <ShieldCheck className="text-amber-600" size={24} />,
+      label: "مصروفات اليوم",
+      value: money(k?.todayExpenses),
+      icon: <TrendingDown size={22} className="text-rose-600" />,
+      bg: "bg-rose-100 border-rose-200",
+    },
+    {
+      label: "رصيد الخزينة",
+      value: money(k?.treasuryBalance),
+      icon: <Wallet size={22} className="text-amber-600" />,
       bg: "bg-amber-100 border-amber-200",
-      href: "/roles",
-      visible: canViewRoles,
     },
     {
-      label: "أحداث سجل النشاط",
-      value: auditQuery.data?.total ?? 0,
-      icon: <ScrollText className="text-purple-600" size={24} />,
-      bg: "bg-purple-100 border-purple-200",
-      href: "/audit",
-      visible: canViewAudit,
+      label: "منتجات تحت الحد",
+      value: String(k?.lowStockCount ?? 0),
+      icon: <AlertTriangle size={22} className="text-orange-600" />,
+      bg: "bg-orange-100 border-orange-200",
     },
-  ].filter((s) => s.visible);
+    {
+      label: "ديون العملاء",
+      value: money(k?.customerDebts),
+      icon: <HandCoins size={22} className="text-purple-600" />,
+      bg: "bg-purple-100 border-purple-200",
+    },
+    {
+      label: "ديون الموردين",
+      value: money(k?.supplierDebts),
+      icon: <CreditCard size={22} className="text-slate-600" />,
+      bg: "bg-slate-100 border-slate-200",
+    },
+  ];
+
+  const paymentData =
+    charts?.salesByPaymentMethod.map((d) => ({
+      name: PAYMENT_LABELS[d.label] ?? d.label,
+      value: d.value,
+    })) ?? [];
 
   return (
     <div className="flex-1 overflow-auto p-6 lg:p-8">
@@ -77,38 +151,150 @@ export function DashboardPage() {
             مرحباً بك، {user?.fullName} 👋
           </h2>
           <p className="text-slate-500 mt-1 font-medium">
-            هذه نظرة عامة على إدارة نظام {user?.storeName}.
+            هذه نظرة عامة على أداء {user?.storeName}.
           </p>
         </div>
 
-        {stats.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stats.map((stat) => (
-              <Link
-                key={stat.label}
-                href={stat.href}
-                className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4 group"
-                data-testid={`card-stat-${stat.href.slice(1)}`}
+        {canViewDashboard && (
+          <div
+            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+            data-testid="dashboard-kpis"
+          >
+            {kpiCards.map((card) => (
+              <div
+                key={card.label}
+                className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4"
+                data-testid={`kpi-${card.label}`}
               >
                 <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border ${stat.bg} group-hover:scale-110 transition-transform`}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${card.bg}`}
                 >
-                  {stat.icon}
+                  {card.icon}
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-slate-500 font-semibold mb-1">
-                    {stat.label}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-500 font-semibold mb-1 truncate">
+                    {card.label}
                   </p>
-                  <p className="text-2xl font-black text-slate-800">
-                    {stat.value}
+                  <p className="text-xl font-black text-slate-800 truncate">
+                    {kpisQuery.isLoading ? "…" : card.value}
                   </p>
                 </div>
-                <ArrowLeft
-                  size={18}
-                  className="text-slate-300 group-hover:text-amber-500 transition-colors"
-                />
-              </Link>
+              </div>
             ))}
+          </div>
+        )}
+
+        {canViewDashboard && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartCard title="مبيعات آخر 30 يوم">
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={charts?.dailySales ?? []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} reversed />
+                  <YAxis tick={{ fontSize: 10 }} orientation="right" width={50} />
+                  <Tooltip formatter={(v: number) => money(v)} />
+                  <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="الإيرادات الشهرية (12 شهر)">
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={charts?.monthlyRevenue ?? []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} reversed />
+                  <YAxis tick={{ fontSize: 10 }} orientation="right" width={50} />
+                  <Tooltip formatter={(v: number) => money(v)} />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="التدفق النقدي (آخر 30 يوم)">
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={charts?.cashFlow ?? []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} reversed />
+                  <YAxis tick={{ fontSize: 10 }} orientation="right" width={50} />
+                  <Tooltip formatter={(v: number) => money(v)} />
+                  <Legend />
+                  <Bar dataKey="inflow" name="داخل" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="outflow" name="خارج" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="الأكثر مبيعاً (آخر 30 يوم)">
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart
+                  data={charts?.bestSellingProducts ?? []}
+                  layout="vertical"
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis type="number" tick={{ fontSize: 10 }} orientation="top" />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    tick={{ fontSize: 10 }}
+                    width={90}
+                    orientation="right"
+                  />
+                  <Tooltip />
+                  <Bar dataKey="value" name="الكمية" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="المبيعات حسب طريقة الدفع (هذا الشهر)">
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie
+                    data={paymentData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={90}
+                    label
+                  >
+                    {paymentData.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => money(v)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="أداء الفئات (هذا الشهر)">
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie
+                    data={charts?.categoryPerformance ?? []}
+                    dataKey="value"
+                    nameKey="label"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={90}
+                    label
+                  >
+                    {(charts?.categoryPerformance ?? []).map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => money(v)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
           </div>
         )}
 
@@ -121,9 +307,10 @@ export function DashboardPage() {
               </h3>
               <Link
                 href="/audit"
-                className="text-sm text-amber-600 font-bold hover:text-amber-700"
+                className="text-sm text-amber-600 font-bold hover:text-amber-700 flex items-center gap-1"
               >
                 عرض الكل
+                <ArrowLeft size={14} />
               </Link>
             </div>
             {auditQuery.isLoading ? (
@@ -164,6 +351,21 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ChartCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+      <h3 className="text-base font-bold text-slate-800 mb-4">{title}</h3>
+      {children}
     </div>
   );
 }

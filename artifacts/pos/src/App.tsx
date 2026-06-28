@@ -18,6 +18,16 @@ import { MovementsPage } from "@/pages/movements";
 import { CustomersPage } from "@/pages/customers";
 import { SuppliersPage } from "@/pages/suppliers";
 import { TreasuryPage } from "@/pages/treasury";
+import { FinancePage } from "@/pages/finance";
+import { ReportsPage } from "@/pages/reports";
+import { POSPage } from "@/pages/pos";
+import { SalesHistoryPage } from "@/pages/sales-history";
+import { SalesReturnsPage } from "@/pages/sales-returns";
+import { PurchasesPage } from "@/pages/purchases";
+import { PurchaseReturnsPage } from "@/pages/purchase-returns";
+import { SettingsPage } from "@/pages/settings";
+import { TransfersPage } from "@/pages/transfers";
+import { StockCountsPage } from "@/pages/stock-counts";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -53,6 +63,31 @@ function AuthenticatedApp() {
     <AppShell>
       <Switch>
         <Route path="/dashboard" component={DashboardPage} />
+        <Route path="/pos">
+          <PermissionGate permission="sales.create">
+            <POSPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/sales">
+          <PermissionGate permission="sales.view">
+            <SalesHistoryPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/sales-returns">
+          <PermissionGate permission="sales.return">
+            <SalesReturnsPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/purchases">
+          <PermissionGate permission="purchases.view">
+            <PurchasesPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/purchase-returns">
+          <PermissionGate permission="purchases.return">
+            <PurchaseReturnsPage />
+          </PermissionGate>
+        </Route>
         <Route path="/products">
           <PermissionGate permission="products.view">
             <ProductsPage />
@@ -78,6 +113,16 @@ function AuthenticatedApp() {
             <MovementsPage />
           </PermissionGate>
         </Route>
+        <Route path="/transfers">
+          <PermissionGate permission="inventory.view">
+            <TransfersPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/stock-counts">
+          <PermissionGate permission="inventory.view">
+            <StockCountsPage />
+          </PermissionGate>
+        </Route>
         <Route path="/customers">
           <PermissionGate permission="customers.view">
             <CustomersPage />
@@ -93,6 +138,16 @@ function AuthenticatedApp() {
             <TreasuryPage />
           </PermissionGate>
         </Route>
+        <Route path="/finance">
+          <PermissionGate permission="finance.view">
+            <FinancePage />
+          </PermissionGate>
+        </Route>
+        <Route path="/reports">
+          <PermissionGate permission="reports.view">
+            <ReportsPage />
+          </PermissionGate>
+        </Route>
         <Route path="/users">
           <PermissionGate permission="users.view">
             <UsersPage />
@@ -106,6 +161,11 @@ function AuthenticatedApp() {
         <Route path="/audit">
           <PermissionGate permission="audit.view">
             <AuditPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/settings">
+          <PermissionGate permission="settings.view">
+            <SettingsPage />
           </PermissionGate>
         </Route>
         <Route path="/" component={() => <Redirect to="/dashboard" />} />

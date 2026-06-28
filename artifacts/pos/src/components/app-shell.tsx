@@ -12,11 +12,20 @@ import {
   Warehouse,
   Boxes,
   Wallet,
+  Landmark,
   Truck,
   Menu,
   X,
+  ShoppingCart,
+  ShoppingBag,
+  Receipt,
+  Undo2,
+  FileBarChart,
+  ArrowLeftRight,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { NotificationBell } from "@/components/notification-bell";
 
 interface NavItem {
   path: string;
@@ -27,14 +36,23 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: "/dashboard", label: "لوحة التحكم", icon: <LayoutDashboard size={20} /> },
+  { path: "/pos", label: "نقطة البيع", icon: <ShoppingCart size={20} />, permission: "sales.create" },
+  { path: "/sales", label: "سجل المبيعات", icon: <Receipt size={20} />, permission: "sales.view" },
+  { path: "/sales-returns", label: "مرتجعات المبيعات", icon: <Undo2 size={20} />, permission: "sales.return" },
+  { path: "/purchases", label: "المشتريات", icon: <ShoppingBag size={20} />, permission: "purchases.view" },
+  { path: "/purchase-returns", label: "مرتجعات المشتريات", icon: <Undo2 size={20} />, permission: "purchases.return" },
   { path: "/products", label: "المنتجات", icon: <Package size={20} />, permission: "products.view" },
   { path: "/master-data", label: "البيانات الأساسية", icon: <Tags size={20} />, permission: "products.view" },
   { path: "/warehouses", label: "المخازن", icon: <Warehouse size={20} />, permission: "inventory.view" },
   { path: "/stock", label: "المخزون", icon: <Boxes size={20} />, permission: "inventory.view" },
   { path: "/movements", label: "حركات المخزون", icon: <ScrollText size={20} />, permission: "inventory.view" },
+  { path: "/transfers", label: "التحويلات المخزنية", icon: <ArrowLeftRight size={20} />, permission: "inventory.view" },
+  { path: "/stock-counts", label: "الجرد المخزني", icon: <ClipboardList size={20} />, permission: "inventory.view" },
   { path: "/customers", label: "العملاء", icon: <Users size={20} />, permission: "customers.view" },
   { path: "/suppliers", label: "الموردون", icon: <Truck size={20} />, permission: "suppliers.view" },
   { path: "/treasury", label: "الخزينة", icon: <Wallet size={20} />, permission: "treasury.view" },
+  { path: "/finance", label: "الشؤون المالية", icon: <Landmark size={20} />, permission: "finance.view" },
+  { path: "/reports", label: "التقارير", icon: <FileBarChart size={20} />, permission: "reports.view" },
   { path: "/users", label: "المستخدمون", icon: <Users size={20} />, permission: "users.view" },
   { path: "/roles", label: "الأدوار والصلاحيات", icon: <ShieldCheck size={20} />, permission: "roles.view" },
   { path: "/audit", label: "سجل النشاط", icon: <ScrollText size={20} />, permission: "audit.view" },
@@ -135,15 +153,20 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       <main className="flex-1 h-full overflow-hidden flex flex-col bg-slate-50">
-        <header className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200">
-          <button
-            onClick={() => setMobileOpen((v) => !v)}
-            className="p-2 rounded-lg hover:bg-slate-100"
-            data-testid="button-menu-toggle"
-          >
-            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
-          <span className="font-bold">{user?.storeName ?? "نقاط البيع"}</span>
+        <header className="flex items-center justify-between p-3 lg:px-6 bg-white border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileOpen((v) => !v)}
+              className="p-2 rounded-lg hover:bg-slate-100 lg:hidden"
+              data-testid="button-menu-toggle"
+            >
+              {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+            <span className="font-bold lg:hidden">
+              {user?.storeName ?? "نقاط البيع"}
+            </span>
+          </div>
+          <NotificationBell />
         </header>
         {children}
       </main>
