@@ -450,3 +450,848 @@ export const ListAuditLogsResponse = zod.object({
 })
 
 
+/**
+ * @summary List categories
+ */
+export const listCategoriesQueryIncludeInactiveDefault = true;
+
+export const ListCategoriesQueryParams = zod.object({
+  "includeInactive": zod.coerce.boolean().default(listCategoriesQueryIncludeInactiveDefault)
+})
+
+export const ListCategoriesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
+
+
+/**
+ * @summary Create a category
+ */
+
+
+
+export const CreateCategoryBody = zod.object({
+  "name": zod.string().min(1),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateCategoryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a category
+ */
+export const UpdateCategoryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateCategoryBody = zod.object({
+  "name": zod.string().min(1),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateCategoryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate a category
+ */
+export const DeleteCategoryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteCategoryResponse = zod.void()
+
+
+/**
+ * @summary List brands
+ */
+export const listBrandsQueryIncludeInactiveDefault = true;
+
+export const ListBrandsQueryParams = zod.object({
+  "includeInactive": zod.coerce.boolean().default(listBrandsQueryIncludeInactiveDefault)
+})
+
+export const ListBrandsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListBrandsResponse = zod.array(ListBrandsResponseItem)
+
+
+/**
+ * @summary Create a brand
+ */
+
+
+
+export const CreateBrandBody = zod.object({
+  "name": zod.string().min(1),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateBrandResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a brand
+ */
+export const UpdateBrandParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateBrandBody = zod.object({
+  "name": zod.string().min(1),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateBrandResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate a brand
+ */
+export const DeleteBrandParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteBrandResponse = zod.void()
+
+
+/**
+ * @summary List colors
+ */
+export const listColorsQueryIncludeInactiveDefault = true;
+
+export const ListColorsQueryParams = zod.object({
+  "includeInactive": zod.coerce.boolean().default(listColorsQueryIncludeInactiveDefault)
+})
+
+export const ListColorsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "hex": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListColorsResponse = zod.array(ListColorsResponseItem)
+
+
+/**
+ * @summary Create a color
+ */
+
+
+
+export const CreateColorBody = zod.object({
+  "name": zod.string().min(1),
+  "nameEn": zod.string().nullish(),
+  "hex": zod.string().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateColorResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "hex": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a color
+ */
+export const UpdateColorParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateColorBody = zod.object({
+  "name": zod.string().min(1),
+  "nameEn": zod.string().nullish(),
+  "hex": zod.string().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateColorResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "hex": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate a color
+ */
+export const DeleteColorParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteColorResponse = zod.void()
+
+
+/**
+ * @summary List sizes
+ */
+export const listSizesQueryIncludeInactiveDefault = true;
+
+export const ListSizesQueryParams = zod.object({
+  "includeInactive": zod.coerce.boolean().default(listSizesQueryIncludeInactiveDefault)
+})
+
+export const ListSizesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "system": zod.string(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListSizesResponse = zod.array(ListSizesResponseItem)
+
+
+/**
+ * @summary Create a size
+ */
+
+
+
+export const CreateSizeBody = zod.object({
+  "name": zod.string().min(1),
+  "system": zod.string().optional(),
+  "sortOrder": zod.number().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateSizeResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "system": zod.string(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a size
+ */
+export const UpdateSizeParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateSizeBody = zod.object({
+  "name": zod.string().min(1),
+  "system": zod.string().optional(),
+  "sortOrder": zod.number().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateSizeResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "system": zod.string(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate a size
+ */
+export const DeleteSizeParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteSizeResponse = zod.void()
+
+
+/**
+ * @summary List products
+ */
+export const listProductsQueryPageDefault = 1;
+
+export const listProductsQueryPageSizeDefault = 20;
+export const listProductsQueryPageSizeMax = 100;
+
+export const listProductsQueryIncludeInactiveDefault = true;
+
+export const ListProductsQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listProductsQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listProductsQueryPageSizeMax).default(listProductsQueryPageSizeDefault),
+  "search": zod.coerce.string().optional(),
+  "categoryId": zod.coerce.string().uuid().optional(),
+  "brandId": zod.coerce.string().uuid().optional(),
+  "includeInactive": zod.coerce.boolean().default(listProductsQueryIncludeInactiveDefault)
+})
+
+export const ListProductsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string().nullish(),
+  "brandId": zod.string().uuid().nullish(),
+  "brandName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "basePrice": zod.string(),
+  "baseCostPrice": zod.string(),
+  "reorderPoint": zod.number(),
+  "barcode": zod.string().nullish(),
+  "variantCount": zod.number().optional(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Create a product (optionally with variants)
+ */
+
+export const createProductBodyBasePriceMin = 0;
+
+export const createProductBodyBaseCostPriceMin = 0;
+
+export const createProductBodyReorderPointMin = 0;
+
+
+
+export const CreateProductBody = zod.object({
+  "name": zod.string().min(1),
+  "nameEn": zod.string().nullish(),
+  "categoryId": zod.string().uuid(),
+  "brandId": zod.string().uuid().nullish(),
+  "description": zod.string().nullish(),
+  "basePrice": zod.number().min(createProductBodyBasePriceMin).optional(),
+  "baseCostPrice": zod.number().min(createProductBodyBaseCostPriceMin).optional(),
+  "reorderPoint": zod.number().min(createProductBodyReorderPointMin).optional(),
+  "variants": zod.array(zod.object({
+  "colorId": zod.string().uuid(),
+  "sizeId": zod.string().uuid(),
+  "sellingPrice": zod.number().nullish(),
+  "costPrice": zod.number().nullish()
+})).optional()
+})
+
+export const CreateProductResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string().nullish(),
+  "brandId": zod.string().uuid().nullish(),
+  "brandName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "basePrice": zod.string(),
+  "baseCostPrice": zod.string(),
+  "reorderPoint": zod.number(),
+  "barcode": zod.string().nullish(),
+  "variantCount": zod.number().optional(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "colorId": zod.string().uuid(),
+  "sizeId": zod.string().uuid(),
+  "colorName": zod.string().nullish(),
+  "sizeName": zod.string().nullish(),
+  "sku": zod.string(),
+  "barcode": zod.string(),
+  "sellingPrice": zod.string().nullish(),
+  "costPrice": zod.string().nullish(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}))
+}))
+
+
+/**
+ * @summary Quick product/variant lookup by name, SKU, or barcode
+ */
+
+export const searchProductsQueryLimitDefault = 20;
+export const searchProductsQueryLimitMax = 50;
+
+
+
+export const SearchProductsQueryParams = zod.object({
+  "q": zod.coerce.string().min(1),
+  "limit": zod.coerce.number().min(1).max(searchProductsQueryLimitMax).default(searchProductsQueryLimitDefault)
+})
+
+export const SearchProductsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string().nullish(),
+  "brandId": zod.string().uuid().nullish(),
+  "brandName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "basePrice": zod.string(),
+  "baseCostPrice": zod.string(),
+  "reorderPoint": zod.number(),
+  "barcode": zod.string().nullish(),
+  "variantCount": zod.number().optional(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const SearchProductsResponse = zod.array(SearchProductsResponseItem)
+
+
+/**
+ * @summary Get a product with its variants
+ */
+export const GetProductParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetProductResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string().nullish(),
+  "brandId": zod.string().uuid().nullish(),
+  "brandName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "basePrice": zod.string(),
+  "baseCostPrice": zod.string(),
+  "reorderPoint": zod.number(),
+  "barcode": zod.string().nullish(),
+  "variantCount": zod.number().optional(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "colorId": zod.string().uuid(),
+  "sizeId": zod.string().uuid(),
+  "colorName": zod.string().nullish(),
+  "sizeName": zod.string().nullish(),
+  "sku": zod.string(),
+  "barcode": zod.string(),
+  "sellingPrice": zod.string().nullish(),
+  "costPrice": zod.string().nullish(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}))
+}))
+
+
+/**
+ * @summary Update a product
+ */
+export const UpdateProductParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+export const updateProductBodyBasePriceMin = 0;
+
+export const updateProductBodyBaseCostPriceMin = 0;
+
+export const updateProductBodyReorderPointMin = 0;
+
+
+
+export const UpdateProductBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "nameEn": zod.string().nullish(),
+  "categoryId": zod.string().uuid().optional(),
+  "brandId": zod.string().uuid().nullish(),
+  "description": zod.string().nullish(),
+  "basePrice": zod.number().min(updateProductBodyBasePriceMin).optional(),
+  "baseCostPrice": zod.number().min(updateProductBodyBaseCostPriceMin).optional(),
+  "reorderPoint": zod.number().min(updateProductBodyReorderPointMin).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateProductResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "nameEn": zod.string().nullish(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string().nullish(),
+  "brandId": zod.string().uuid().nullish(),
+  "brandName": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "basePrice": zod.string(),
+  "baseCostPrice": zod.string(),
+  "reorderPoint": zod.number(),
+  "barcode": zod.string().nullish(),
+  "variantCount": zod.number().optional(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "colorId": zod.string().uuid(),
+  "sizeId": zod.string().uuid(),
+  "colorName": zod.string().nullish(),
+  "sizeName": zod.string().nullish(),
+  "sku": zod.string(),
+  "barcode": zod.string(),
+  "sellingPrice": zod.string().nullish(),
+  "costPrice": zod.string().nullish(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}))
+}))
+
+
+/**
+ * @summary Deactivate a product
+ */
+export const DeleteProductParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteProductResponse = zod.void()
+
+
+/**
+ * @summary Add a variant to a product
+ */
+export const CreateVariantParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const CreateVariantBody = zod.object({
+  "colorId": zod.string().uuid(),
+  "sizeId": zod.string().uuid(),
+  "sku": zod.string().optional(),
+  "barcode": zod.string().optional(),
+  "sellingPrice": zod.number().nullish(),
+  "costPrice": zod.number().nullish()
+})
+
+export const CreateVariantResponse = zod.object({
+  "id": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "colorId": zod.string().uuid(),
+  "sizeId": zod.string().uuid(),
+  "colorName": zod.string().nullish(),
+  "sizeName": zod.string().nullish(),
+  "sku": zod.string(),
+  "barcode": zod.string(),
+  "sellingPrice": zod.string().nullish(),
+  "costPrice": zod.string().nullish(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a variant
+ */
+export const UpdateVariantParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const UpdateVariantBody = zod.object({
+  "sellingPrice": zod.number().nullish(),
+  "costPrice": zod.number().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateVariantResponse = zod.object({
+  "id": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "colorId": zod.string().uuid(),
+  "sizeId": zod.string().uuid(),
+  "colorName": zod.string().nullish(),
+  "sizeName": zod.string().nullish(),
+  "sku": zod.string(),
+  "barcode": zod.string(),
+  "sellingPrice": zod.string().nullish(),
+  "costPrice": zod.string().nullish(),
+  "totalStock": zod.number().optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate a variant
+ */
+export const DeleteVariantParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteVariantResponse = zod.void()
+
+
+/**
+ * @summary List warehouses
+ */
+export const listWarehousesQueryIncludeInactiveDefault = true;
+
+export const ListWarehousesQueryParams = zod.object({
+  "includeInactive": zod.coerce.boolean().default(listWarehousesQueryIncludeInactiveDefault)
+})
+
+export const ListWarehousesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "code": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "isDefault": zod.boolean(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListWarehousesResponse = zod.array(ListWarehousesResponseItem)
+
+
+/**
+ * @summary Create a warehouse
+ */
+
+
+
+export const CreateWarehouseBody = zod.object({
+  "name": zod.string().min(1),
+  "code": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "isDefault": zod.boolean().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateWarehouseResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "code": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "isDefault": zod.boolean(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a warehouse
+ */
+export const UpdateWarehouseParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateWarehouseBody = zod.object({
+  "name": zod.string().min(1),
+  "code": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "isDefault": zod.boolean().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateWarehouseResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "code": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "isDefault": zod.boolean(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate a warehouse
+ */
+export const DeleteWarehouseParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteWarehouseResponse = zod.void()
+
+
+/**
+ * @summary Current stock per variant per warehouse
+ */
+export const listStockQueryPageDefault = 1;
+
+export const listStockQueryPageSizeDefault = 20;
+export const listStockQueryPageSizeMax = 100;
+
+export const listStockQueryLowStockOnlyDefault = false;
+
+export const ListStockQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listStockQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listStockQueryPageSizeMax).default(listStockQueryPageSizeDefault),
+  "search": zod.coerce.string().optional(),
+  "warehouseId": zod.coerce.string().uuid().optional(),
+  "lowStockOnly": zod.coerce.boolean().default(listStockQueryLowStockOnlyDefault)
+})
+
+export const ListStockResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "productName": zod.string(),
+  "sku": zod.string(),
+  "barcode": zod.string(),
+  "colorName": zod.string().nullish(),
+  "sizeName": zod.string().nullish(),
+  "warehouseId": zod.string().uuid(),
+  "warehouseName": zod.string(),
+  "quantity": zod.number(),
+  "reorderPoint": zod.number()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Inventory movement history
+ */
+export const listMovementsQueryPageDefault = 1;
+
+export const listMovementsQueryPageSizeDefault = 20;
+export const listMovementsQueryPageSizeMax = 100;
+
+
+
+export const ListMovementsQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listMovementsQueryPageDefault),
+  "pageSize": zod.coerce.number().min(1).max(listMovementsQueryPageSizeMax).default(listMovementsQueryPageSizeDefault),
+  "variantId": zod.coerce.string().uuid().optional(),
+  "warehouseId": zod.coerce.string().uuid().optional(),
+  "type": zod.coerce.string().optional()
+})
+
+export const ListMovementsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "sku": zod.string().nullish(),
+  "productName": zod.string().nullish(),
+  "warehouseId": zod.string().uuid(),
+  "warehouseName": zod.string().nullish(),
+  "type": zod.string(),
+  "quantityChange": zod.number(),
+  "balanceAfter": zod.number(),
+  "referenceType": zod.string().nullish(),
+  "referenceId": zod.string().uuid().nullish(),
+  "notes": zod.string().nullish(),
+  "userName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Manually adjust stock (creates movements + syncs quantities)
+ */
+
+
+
+
+export const CreateAdjustmentBody = zod.object({
+  "warehouseId": zod.string().uuid(),
+  "notes": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "type": zod.enum(['ADJUSTMENT_IN', 'ADJUSTMENT_OUT']),
+  "quantity": zod.number().min(1),
+  "notes": zod.string().nullish()
+})).min(1)
+})
+
+export const CreateAdjustmentResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "variantId": zod.string().uuid(),
+  "sku": zod.string().nullish(),
+  "productName": zod.string().nullish(),
+  "warehouseId": zod.string().uuid(),
+  "warehouseName": zod.string().nullish(),
+  "type": zod.string(),
+  "quantityChange": zod.number(),
+  "balanceAfter": zod.number(),
+  "referenceType": zod.string().nullish(),
+  "referenceId": zod.string().uuid().nullish(),
+  "notes": zod.string().nullish(),
+  "userName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const CreateAdjustmentResponse = zod.array(CreateAdjustmentResponseItem)
+
+

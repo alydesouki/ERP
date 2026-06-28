@@ -8,6 +8,9 @@ import {
   Settings,
   LogOut,
   Package,
+  Tags,
+  Warehouse,
+  Boxes,
   Menu,
   X,
 } from "lucide-react";
@@ -22,6 +25,11 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: "/dashboard", label: "لوحة التحكم", icon: <LayoutDashboard size={20} /> },
+  { path: "/products", label: "المنتجات", icon: <Package size={20} />, permission: "products.view" },
+  { path: "/master-data", label: "البيانات الأساسية", icon: <Tags size={20} />, permission: "products.view" },
+  { path: "/warehouses", label: "المخازن", icon: <Warehouse size={20} />, permission: "inventory.view" },
+  { path: "/stock", label: "المخزون", icon: <Boxes size={20} />, permission: "inventory.view" },
+  { path: "/movements", label: "حركات المخزون", icon: <ScrollText size={20} />, permission: "inventory.view" },
   { path: "/users", label: "المستخدمون", icon: <Users size={20} />, permission: "users.view" },
   { path: "/roles", label: "الأدوار والصلاحيات", icon: <ShieldCheck size={20} />, permission: "roles.view" },
   { path: "/audit", label: "سجل النشاط", icon: <ScrollText size={20} />, permission: "audit.view" },

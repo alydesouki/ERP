@@ -464,6 +464,685 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuditLogList"
 
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [catalog]
+      summary: List categories
+      parameters:
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [catalog]
+      summary: Create a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /categories/{id}:
+    patch:
+      operationId: updateCategory
+      tags: [catalog]
+      summary: Update a category
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteCategory
+      tags: [catalog]
+      summary: Deactivate a category
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /brands:
+    get:
+      operationId: listBrands
+      tags: [catalog]
+      summary: List brands
+      parameters:
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Brands
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Brand"
+    post:
+      operationId: createBrand
+      tags: [catalog]
+      summary: Create a brand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brand"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /brands/{id}:
+    patch:
+      operationId: updateBrand
+      tags: [catalog]
+      summary: Update a brand
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brand"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteBrand
+      tags: [catalog]
+      summary: Deactivate a brand
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /colors:
+    get:
+      operationId: listColors
+      tags: [catalog]
+      summary: List colors
+      parameters:
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Colors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Color"
+    post:
+      operationId: createColor
+      tags: [catalog]
+      summary: Create a color
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ColorInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Color"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /colors/{id}:
+    patch:
+      operationId: updateColor
+      tags: [catalog]
+      summary: Update a color
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ColorInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Color"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteColor
+      tags: [catalog]
+      summary: Deactivate a color
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sizes:
+    get:
+      operationId: listSizes
+      tags: [catalog]
+      summary: List sizes
+      parameters:
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Sizes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Size"
+    post:
+      operationId: createSize
+      tags: [catalog]
+      summary: Create a size
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SizeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Size"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /sizes/{id}:
+    patch:
+      operationId: updateSize
+      tags: [catalog]
+      summary: Update a size
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SizeInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Size"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteSize
+      tags: [catalog]
+      summary: Deactivate a size
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List products
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: categoryId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: brandId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Paginated products
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductList"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product (optionally with variants)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /products/search:
+    get:
+      operationId: searchProducts
+      tags: [products]
+      summary: Quick product/variant lookup by name, SKU, or barcode
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          description: Matching products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a product with its variants
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Product detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Deactivate a product
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /products/{id}/variants:
+    post:
+      operationId: createVariant
+      tags: [products]
+      summary: Add a variant to a product
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VariantInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVariant"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /variants/{id}:
+    patch:
+      operationId: updateVariant
+      tags: [products]
+      summary: Update a variant
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VariantUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVariant"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteVariant
+      tags: [products]
+      summary: Deactivate a variant
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /warehouses:
+    get:
+      operationId: listWarehouses
+      tags: [warehouses]
+      summary: List warehouses
+      parameters:
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Warehouses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Warehouse"
+    post:
+      operationId: createWarehouse
+      tags: [warehouses]
+      summary: Create a warehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WarehouseInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Warehouse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /warehouses/{id}:
+    patch:
+      operationId: updateWarehouse
+      tags: [warehouses]
+      summary: Update a warehouse
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WarehouseInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Warehouse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteWarehouse
+      tags: [warehouses]
+      summary: Deactivate a warehouse
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /inventory/stock:
+    get:
+      operationId: listStock
+      tags: [inventory]
+      summary: Current stock per variant per warehouse
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: warehouseId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: lowStockOnly
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Paginated stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockList"
+
+  /inventory/movements:
+    get:
+      operationId: listMovements
+      tags: [inventory]
+      summary: Inventory movement history
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: variantId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: warehouseId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: type
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated movements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovementList"
+
+  /inventory/adjustments:
+    post:
+      operationId: createAdjustment
+      tags: [inventory]
+      summary: Manually adjust stock (creates movements + syncs quantities)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustmentInput"
+      responses:
+        "201":
+          description: Movements created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryMovement"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   parameters:
     IdParam:
@@ -473,6 +1152,25 @@ components:
       schema:
         type: string
         format: uuid
+  responses:
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   schemas:
     HealthStatus:
       type: object
@@ -865,3 +1563,300 @@ components:
         - total
         - page
         - pageSize
+
+    Category:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        nameEn: { type: ["string", "null"] }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, isActive, createdAt]
+
+    CategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        nameEn: { type: ["string", "null"] }
+        isActive: { type: boolean }
+
+    Brand:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        nameEn: { type: ["string", "null"] }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, isActive, createdAt]
+
+    BrandInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        nameEn: { type: ["string", "null"] }
+        isActive: { type: boolean }
+
+    Color:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        nameEn: { type: ["string", "null"] }
+        hex: { type: ["string", "null"] }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, isActive, createdAt]
+
+    ColorInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        nameEn: { type: ["string", "null"] }
+        hex: { type: ["string", "null"] }
+        isActive: { type: boolean }
+
+    Size:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        system: { type: string }
+        sortOrder: { type: integer }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, system, sortOrder, isActive, createdAt]
+
+    SizeInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        system: { type: string }
+        sortOrder: { type: integer }
+        isActive: { type: boolean }
+
+    ProductVariant:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        colorId: { type: string, format: uuid }
+        sizeId: { type: string, format: uuid }
+        colorName: { type: ["string", "null"] }
+        sizeName: { type: ["string", "null"] }
+        sku: { type: string }
+        barcode: { type: string }
+        sellingPrice: { type: ["string", "null"] }
+        costPrice: { type: ["string", "null"] }
+        totalStock: { type: integer }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, productId, colorId, sizeId, sku, barcode, isActive, createdAt]
+
+    VariantInput:
+      type: object
+      required: [colorId, sizeId]
+      properties:
+        colorId: { type: string, format: uuid }
+        sizeId: { type: string, format: uuid }
+        sku: { type: string }
+        barcode: { type: string }
+        sellingPrice: { type: ["number", "null"] }
+        costPrice: { type: ["number", "null"] }
+
+    VariantUpdate:
+      type: object
+      properties:
+        sellingPrice: { type: ["number", "null"] }
+        costPrice: { type: ["number", "null"] }
+        isActive: { type: boolean }
+
+    Product:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        nameEn: { type: ["string", "null"] }
+        categoryId: { type: string, format: uuid }
+        categoryName: { type: ["string", "null"] }
+        brandId: { type: ["string", "null"], format: uuid }
+        brandName: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        basePrice: { type: string }
+        baseCostPrice: { type: string }
+        reorderPoint: { type: integer }
+        barcode: { type: ["string", "null"] }
+        variantCount: { type: integer }
+        totalStock: { type: integer }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, categoryId, basePrice, baseCostPrice, reorderPoint, isActive, createdAt]
+
+    ProductDetail:
+      allOf:
+        - $ref: "#/components/schemas/Product"
+        - type: object
+          properties:
+            variants:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductVariant"
+          required: [variants]
+
+    VariantSeed:
+      type: object
+      required: [colorId, sizeId]
+      properties:
+        colorId: { type: string, format: uuid }
+        sizeId: { type: string, format: uuid }
+        sellingPrice: { type: ["number", "null"] }
+        costPrice: { type: ["number", "null"] }
+
+    ProductInput:
+      type: object
+      required: [name, categoryId]
+      properties:
+        name: { type: string, minLength: 1 }
+        nameEn: { type: ["string", "null"] }
+        categoryId: { type: string, format: uuid }
+        brandId: { type: ["string", "null"], format: uuid }
+        description: { type: ["string", "null"] }
+        basePrice: { type: number, minimum: 0 }
+        baseCostPrice: { type: number, minimum: 0 }
+        reorderPoint: { type: integer, minimum: 0 }
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/VariantSeed"
+
+    ProductUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        nameEn: { type: ["string", "null"] }
+        categoryId: { type: string, format: uuid }
+        brandId: { type: ["string", "null"], format: uuid }
+        description: { type: ["string", "null"] }
+        basePrice: { type: number, minimum: 0 }
+        baseCostPrice: { type: number, minimum: 0 }
+        reorderPoint: { type: integer, minimum: 0 }
+        isActive: { type: boolean }
+
+    ProductList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+      required: [items, total, page, pageSize]
+
+    Warehouse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        isDefault: { type: boolean }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, isDefault, isActive, createdAt]
+
+    WarehouseInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        code: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        isDefault: { type: boolean }
+        isActive: { type: boolean }
+
+    StockItem:
+      type: object
+      properties:
+        variantId: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        productName: { type: string }
+        sku: { type: string }
+        barcode: { type: string }
+        colorName: { type: ["string", "null"] }
+        sizeName: { type: ["string", "null"] }
+        warehouseId: { type: string, format: uuid }
+        warehouseName: { type: string }
+        quantity: { type: integer }
+        reorderPoint: { type: integer }
+      required: [variantId, productId, productName, sku, barcode, warehouseId, warehouseName, quantity, reorderPoint]
+
+    StockList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockItem"
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+      required: [items, total, page, pageSize]
+
+    InventoryMovement:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        sku: { type: ["string", "null"] }
+        productName: { type: ["string", "null"] }
+        warehouseId: { type: string, format: uuid }
+        warehouseName: { type: ["string", "null"] }
+        type: { type: string }
+        quantityChange: { type: integer }
+        balanceAfter: { type: integer }
+        referenceType: { type: ["string", "null"] }
+        referenceId: { type: ["string", "null"], format: uuid }
+        notes: { type: ["string", "null"] }
+        userName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+      required: [id, variantId, warehouseId, type, quantityChange, balanceAfter, createdAt]
+
+    MovementList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryMovement"
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+      required: [items, total, page, pageSize]
+
+    AdjustmentLine:
+      type: object
+      required: [variantId, type, quantity]
+      properties:
+        variantId: { type: string, format: uuid }
+        type: { type: string, enum: [ADJUSTMENT_IN, ADJUSTMENT_OUT] }
+        quantity: { type: integer, minimum: 1 }
+        notes: { type: ["string", "null"] }
+
+    AdjustmentInput:
+      type: object
+      required: [warehouseId, lines]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        notes: { type: ["string", "null"] }
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AdjustmentLine"

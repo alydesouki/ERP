@@ -10,6 +10,11 @@ import { DashboardPage } from "@/pages/dashboard";
 import { UsersPage } from "@/pages/users";
 import { RolesPage } from "@/pages/roles";
 import { AuditPage } from "@/pages/audit";
+import { ProductsPage } from "@/pages/products";
+import { MasterDataPage } from "@/pages/master-data";
+import { WarehousesPage } from "@/pages/warehouses";
+import { StockPage } from "@/pages/stock";
+import { MovementsPage } from "@/pages/movements";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -45,6 +50,31 @@ function AuthenticatedApp() {
     <AppShell>
       <Switch>
         <Route path="/dashboard" component={DashboardPage} />
+        <Route path="/products">
+          <PermissionGate permission="products.view">
+            <ProductsPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/master-data">
+          <PermissionGate permission="products.view">
+            <MasterDataPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/warehouses">
+          <PermissionGate permission="inventory.view">
+            <WarehousesPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/stock">
+          <PermissionGate permission="inventory.view">
+            <StockPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/movements">
+          <PermissionGate permission="inventory.view">
+            <MovementsPage />
+          </PermissionGate>
+        </Route>
         <Route path="/users">
           <PermissionGate permission="users.view">
             <UsersPage />

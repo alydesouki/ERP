@@ -196,6 +196,317 @@ export interface AuditLogList {
   pageSize: number;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  /** @nullable */
+  nameEn?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CategoryInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  nameEn?: string | null;
+  isActive?: boolean;
+}
+
+export interface Brand {
+  id: string;
+  name: string;
+  /** @nullable */
+  nameEn?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface BrandInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  nameEn?: string | null;
+  isActive?: boolean;
+}
+
+export interface Color {
+  id: string;
+  name: string;
+  /** @nullable */
+  nameEn?: string | null;
+  /** @nullable */
+  hex?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ColorInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  nameEn?: string | null;
+  /** @nullable */
+  hex?: string | null;
+  isActive?: boolean;
+}
+
+export interface Size {
+  id: string;
+  name: string;
+  system: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface SizeInput {
+  /** @minLength 1 */
+  name: string;
+  system?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  colorId: string;
+  sizeId: string;
+  /** @nullable */
+  colorName?: string | null;
+  /** @nullable */
+  sizeName?: string | null;
+  sku: string;
+  barcode: string;
+  /** @nullable */
+  sellingPrice?: string | null;
+  /** @nullable */
+  costPrice?: string | null;
+  totalStock?: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface VariantInput {
+  colorId: string;
+  sizeId: string;
+  sku?: string;
+  barcode?: string;
+  /** @nullable */
+  sellingPrice?: number | null;
+  /** @nullable */
+  costPrice?: number | null;
+}
+
+export interface VariantUpdate {
+  /** @nullable */
+  sellingPrice?: number | null;
+  /** @nullable */
+  costPrice?: number | null;
+  isActive?: boolean;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  /** @nullable */
+  nameEn?: string | null;
+  categoryId: string;
+  /** @nullable */
+  categoryName?: string | null;
+  /** @nullable */
+  brandId?: string | null;
+  /** @nullable */
+  brandName?: string | null;
+  /** @nullable */
+  description?: string | null;
+  basePrice: string;
+  baseCostPrice: string;
+  reorderPoint: number;
+  /** @nullable */
+  barcode?: string | null;
+  variantCount?: number;
+  totalStock?: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type ProductDetail = Product & {
+  variants: ProductVariant[];
+};
+
+export interface VariantSeed {
+  colorId: string;
+  sizeId: string;
+  /** @nullable */
+  sellingPrice?: number | null;
+  /** @nullable */
+  costPrice?: number | null;
+}
+
+export interface ProductInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  nameEn?: string | null;
+  categoryId: string;
+  /** @nullable */
+  brandId?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @minimum 0 */
+  basePrice?: number;
+  /** @minimum 0 */
+  baseCostPrice?: number;
+  /** @minimum 0 */
+  reorderPoint?: number;
+  variants?: VariantSeed[];
+}
+
+export interface ProductUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  nameEn?: string | null;
+  categoryId?: string;
+  /** @nullable */
+  brandId?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @minimum 0 */
+  basePrice?: number;
+  /** @minimum 0 */
+  baseCostPrice?: number;
+  /** @minimum 0 */
+  reorderPoint?: number;
+  isActive?: boolean;
+}
+
+export interface ProductList {
+  items: Product[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface Warehouse {
+  id: string;
+  name: string;
+  /** @nullable */
+  code?: string | null;
+  /** @nullable */
+  address?: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface WarehouseInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  code?: string | null;
+  /** @nullable */
+  address?: string | null;
+  isDefault?: boolean;
+  isActive?: boolean;
+}
+
+export interface StockItem {
+  variantId: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  barcode: string;
+  /** @nullable */
+  colorName?: string | null;
+  /** @nullable */
+  sizeName?: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  quantity: number;
+  reorderPoint: number;
+}
+
+export interface StockList {
+  items: StockItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface InventoryMovement {
+  id: string;
+  variantId: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  productName?: string | null;
+  warehouseId: string;
+  /** @nullable */
+  warehouseName?: string | null;
+  type: string;
+  quantityChange: number;
+  balanceAfter: number;
+  /** @nullable */
+  referenceType?: string | null;
+  /** @nullable */
+  referenceId?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  userName?: string | null;
+  createdAt: string;
+}
+
+export interface MovementList {
+  items: InventoryMovement[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type AdjustmentLineType = typeof AdjustmentLineType[keyof typeof AdjustmentLineType];
+
+
+export const AdjustmentLineType = {
+  ADJUSTMENT_IN: 'ADJUSTMENT_IN',
+  ADJUSTMENT_OUT: 'ADJUSTMENT_OUT',
+} as const;
+
+export interface AdjustmentLine {
+  variantId: string;
+  type: AdjustmentLineType;
+  /** @minimum 1 */
+  quantity: number;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface AdjustmentInput {
+  warehouseId: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @minItems 1 */
+  lines: AdjustmentLine[];
+}
+
+/**
+ * Validation error
+ */
+export type ValidationErrorResponse = ErrorResponse;
+
+/**
+ * Not found
+ */
+export type NotFoundResponse = ErrorResponse;
+
+/**
+ * Conflict
+ */
+export type ConflictResponse = ErrorResponse;
+
 export type ListUsersParams = {
 /**
  * @minimum 1
@@ -222,5 +533,83 @@ page?: number;
 pageSize?: number;
 action?: string;
 entityType?: string;
+};
+
+export type ListCategoriesParams = {
+includeInactive?: boolean;
+};
+
+export type ListBrandsParams = {
+includeInactive?: boolean;
+};
+
+export type ListColorsParams = {
+includeInactive?: boolean;
+};
+
+export type ListSizesParams = {
+includeInactive?: boolean;
+};
+
+export type ListProductsParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+search?: string;
+categoryId?: string;
+brandId?: string;
+includeInactive?: boolean;
+};
+
+export type SearchProductsParams = {
+/**
+ * @minLength 1
+ */
+q: string;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+};
+
+export type ListWarehousesParams = {
+includeInactive?: boolean;
+};
+
+export type ListStockParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+search?: string;
+warehouseId?: string;
+lowStockOnly?: boolean;
+};
+
+export type ListMovementsParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+variantId?: string;
+warehouseId?: string;
+type?: string;
 };
 

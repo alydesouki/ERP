@@ -3,3 +3,7 @@ export * from "./roles";
 export * from "./users";
 export * from "./sessions";
 export * from "./audit-logs";
+export * from "./catalog";
+export * from "./warehouses";
+export * from "./products";
+export * from "./inventory";
