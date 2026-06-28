@@ -9,6 +9,9 @@ import catalogRouter from "./catalog";
 import warehousesRouter from "./warehouses";
 import productsRouter from "./products";
 import inventoryRouter from "./inventory";
+import treasuryRouter from "./treasury";
+import customersRouter from "./customers";
+import suppliersRouter from "./suppliers";
 
 const router: IRouter = Router();
 
@@ -22,5 +25,8 @@ router.use(catalogRouter);
 router.use(warehousesRouter);
 router.use(productsRouter);
 router.use(inventoryRouter);
+router.use(treasuryRouter);
+router.use(customersRouter);
+router.use(suppliersRouter);
 
 export default router;

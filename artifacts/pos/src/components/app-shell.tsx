@@ -11,6 +11,8 @@ import {
   Tags,
   Warehouse,
   Boxes,
+  Wallet,
+  Truck,
   Menu,
   X,
 } from "lucide-react";
@@ -30,6 +32,9 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/warehouses", label: "المخازن", icon: <Warehouse size={20} />, permission: "inventory.view" },
   { path: "/stock", label: "المخزون", icon: <Boxes size={20} />, permission: "inventory.view" },
   { path: "/movements", label: "حركات المخزون", icon: <ScrollText size={20} />, permission: "inventory.view" },
+  { path: "/customers", label: "العملاء", icon: <Users size={20} />, permission: "customers.view" },
+  { path: "/suppliers", label: "الموردون", icon: <Truck size={20} />, permission: "suppliers.view" },
+  { path: "/treasury", label: "الخزينة", icon: <Wallet size={20} />, permission: "treasury.view" },
   { path: "/users", label: "المستخدمون", icon: <Users size={20} />, permission: "users.view" },
   { path: "/roles", label: "الأدوار والصلاحيات", icon: <ShieldCheck size={20} />, permission: "roles.view" },
   { path: "/audit", label: "سجل النشاط", icon: <ScrollText size={20} />, permission: "audit.view" },

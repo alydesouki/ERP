@@ -492,6 +492,428 @@ export interface AdjustmentInput {
   lines: AdjustmentLine[];
 }
 
+export interface TreasuryAccount {
+  id: string;
+  type: string;
+  name: string;
+  balance: string;
+  isActive: boolean;
+}
+
+export interface TreasuryTransaction {
+  id: string;
+  treasuryAccountId: string;
+  /** @nullable */
+  accountName?: string | null;
+  /** @nullable */
+  sessionId?: string | null;
+  direction: string;
+  amount: string;
+  balanceAfter: string;
+  referenceType: string;
+  /** @nullable */
+  referenceId?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  userName?: string | null;
+  createdAt: string;
+}
+
+export interface TreasuryTransactionList {
+  items: TreasuryTransaction[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface TreasurySession {
+  id: string;
+  treasuryAccountId: string;
+  /** @nullable */
+  accountName?: string | null;
+  status: string;
+  openingBalance: string;
+  /** @nullable */
+  expectedClosingBalance?: string | null;
+  /** @nullable */
+  actualClosingBalance?: string | null;
+  /** @nullable */
+  variance?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  openedByName?: string | null;
+  /** @nullable */
+  closedByName?: string | null;
+  openedAt: string;
+  /** @nullable */
+  closedAt?: string | null;
+}
+
+export interface TreasurySessionList {
+  items: TreasurySession[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CurrentSessionResponse {
+  session: TreasurySession | null;
+}
+
+export interface OpenSessionInput {
+  treasuryAccountId: string;
+  /** @minimum 0 */
+  openingBalance: number;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface CloseSessionInput {
+  /** @minimum 0 */
+  actualClosingBalance: number;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  /** @nullable */
+  address?: string | null;
+  creditLimit: string;
+  currentBalance: string;
+  /** @nullable */
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CustomerInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  phone: string;
+  /** @nullable */
+  address?: string | null;
+  /** @minimum 0 */
+  creditLimit?: number;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface CustomerList {
+  items: Customer[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CustomerTransaction {
+  id: string;
+  customerId: string;
+  type: string;
+  debit: string;
+  credit: string;
+  balanceAfter: string;
+  /** @nullable */
+  referenceType?: string | null;
+  /** @nullable */
+  referenceId?: string | null;
+  /** @nullable */
+  description?: string | null;
+  createdAt: string;
+}
+
+export interface CustomerStatement {
+  customer: Customer;
+  items: CustomerTransaction[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  taxNumber?: string | null;
+  currentBalance: string;
+  /** @nullable */
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface SupplierInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  phone: string;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  taxNumber?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface SupplierList {
+  items: Supplier[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SupplierTransaction {
+  id: string;
+  supplierId: string;
+  type: string;
+  debit: string;
+  credit: string;
+  balanceAfter: string;
+  /** @nullable */
+  referenceType?: string | null;
+  /** @nullable */
+  referenceId?: string | null;
+  /** @nullable */
+  description?: string | null;
+  createdAt: string;
+}
+
+export interface SupplierStatement {
+  supplier: Supplier;
+  items: SupplierTransaction[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface PaymentInput {
+  /** @minimum 0 */
+  amount: number;
+  treasuryAccountId: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface SaleItemInput {
+  variantId: string;
+  /** @minimum 1 */
+  quantity: number;
+  /** @minimum 0 */
+  unitPrice: number;
+  /** @minimum 0 */
+  discountAmount?: number;
+}
+
+export type SalePaymentInputMethod = typeof SalePaymentInputMethod[keyof typeof SalePaymentInputMethod];
+
+
+export const SalePaymentInputMethod = {
+  CASH: 'CASH',
+  CARD: 'CARD',
+  INSTAPAY: 'INSTAPAY',
+  WALLET: 'WALLET',
+  CREDIT: 'CREDIT',
+} as const;
+
+export interface SalePaymentInput {
+  method: SalePaymentInputMethod;
+  /** @minimum 0 */
+  amount: number;
+  /** @nullable */
+  treasuryAccountId?: string | null;
+}
+
+export interface CreateSaleInput {
+  warehouseId: string;
+  /** @nullable */
+  customerId?: string | null;
+  /** @minimum 0 */
+  discountAmount?: number;
+  /** @minimum 0 */
+  taxAmount?: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @minItems 1 */
+  items: SaleItemInput[];
+  payments: SalePaymentInput[];
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  invoiceBarcode: string;
+  /** @nullable */
+  customerId?: string | null;
+  /** @nullable */
+  customerName?: string | null;
+  warehouseId: string;
+  /** @nullable */
+  warehouseName?: string | null;
+  saleType: string;
+  subtotal: string;
+  discountAmount: string;
+  taxAmount: string;
+  totalAmount: string;
+  totalCost?: string;
+  amountPaid: string;
+  changeDue?: string;
+  paymentStatus: string;
+  returnStatus: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  userName?: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  variantId: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  barcode?: string | null;
+  /** @nullable */
+  productName?: string | null;
+  /** @nullable */
+  colorName?: string | null;
+  /** @nullable */
+  sizeName?: string | null;
+  quantity: number;
+  unitPrice: string;
+  unitCost?: string;
+  discountAmount?: string;
+  lineTotal: string;
+  returnedQuantity?: number;
+}
+
+export interface InvoicePayment {
+  id: string;
+  method: string;
+  /** @nullable */
+  treasuryAccountId?: string | null;
+  /** @nullable */
+  accountName?: string | null;
+  amount: string;
+  createdAt?: string;
+}
+
+export type InvoiceDetail = Invoice & {
+  items: InvoiceItem[];
+  payments: InvoicePayment[];
+};
+
+export interface InvoiceList {
+  items: Invoice[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SalesReturnItemInput {
+  invoiceItemId: string;
+  /** @minimum 1 */
+  quantity: number;
+}
+
+export type CreateSalesReturnInputRefundMethod = typeof CreateSalesReturnInputRefundMethod[keyof typeof CreateSalesReturnInputRefundMethod];
+
+
+export const CreateSalesReturnInputRefundMethod = {
+  CASH: 'CASH',
+  CARD: 'CARD',
+  INSTAPAY: 'INSTAPAY',
+  WALLET: 'WALLET',
+  CREDIT: 'CREDIT',
+} as const;
+
+export interface CreateSalesReturnInput {
+  invoiceId: string;
+  refundMethod?: CreateSalesReturnInputRefundMethod;
+  /** @nullable */
+  treasuryAccountId?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  /** @minItems 1 */
+  items: SalesReturnItemInput[];
+}
+
+export interface SalesReturn {
+  id: string;
+  returnNumber: string;
+  invoiceId: string;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  warehouseId?: string;
+  totalAmount: string;
+  totalCost?: string;
+  refundMethod: string;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  userName?: string | null;
+  createdAt: string;
+}
+
+export interface SalesReturnItem {
+  id: string;
+  variantId: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  productName?: string | null;
+  quantity: number;
+  unitPrice: string;
+  lineTotal: string;
+}
+
+export type SalesReturnDetail = SalesReturn & {
+  items: SalesReturnItem[];
+};
+
+export interface SalesReturnList {
+  items: SalesReturn[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SuspendedOrder {
+  id: string;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  customerId?: string | null;
+  /** @nullable */
+  customerName?: string | null;
+  cart: unknown;
+  itemCount: number;
+  totalAmount: string;
+  /** @nullable */
+  userName?: string | null;
+  createdAt: string;
+}
+
+export interface SuspendedOrderInput {
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  customerId?: string | null;
+  cart: unknown;
+  /** @minimum 0 */
+  itemCount?: number;
+  /** @minimum 0 */
+  totalAmount?: number;
+}
+
 /**
  * Validation error
  */
@@ -611,5 +1033,104 @@ pageSize?: number;
 variantId?: string;
 warehouseId?: string;
 type?: string;
+};
+
+export type ListTreasuryTransactionsParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+treasuryAccountId?: string;
+direction?: string;
+referenceType?: string;
+dateFrom?: string;
+dateTo?: string;
+};
+
+export type ListTreasurySessionsParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+treasuryAccountId?: string;
+status?: string;
+};
+
+export type GetCurrentTreasurySessionParams = {
+treasuryAccountId: string;
+};
+
+export type ListCustomersParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+search?: string;
+includeInactive?: boolean;
+withDebtOnly?: boolean;
+};
+
+export type ListSuppliersParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+search?: string;
+includeInactive?: boolean;
+withDebtOnly?: boolean;
+};
+
+export type ListInvoicesParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+search?: string;
+customerId?: string;
+paymentStatus?: string;
+dateFrom?: string;
+dateTo?: string;
+};
+
+export type LookupInvoiceParams = {
+q: string;
+};
+
+export type ListSalesReturnsParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+invoiceId?: string;
 };
 

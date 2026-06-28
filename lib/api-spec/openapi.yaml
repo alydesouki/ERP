@@ -18,6 +18,12 @@ tags:
     description: Roles and permissions
   - name: audit
     description: Audit log
+  - name: treasury
+    description: Treasury accounts, sessions and transactions
+  - name: customers
+    description: Customers and their ledgers
+  - name: suppliers
+    description: Suppliers and their ledgers
 paths:
   /healthz:
     get:
@@ -1143,6 +1149,639 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /treasury/accounts:
+    get:
+      operationId: listTreasuryAccounts
+      tags: [treasury]
+      summary: List treasury accounts (auto-seeds defaults)
+      responses:
+        "200":
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TreasuryAccount"
+
+  /treasury/transactions:
+    get:
+      operationId: listTreasuryTransactions
+      tags: [treasury]
+      summary: Treasury transaction ledger
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: treasuryAccountId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: direction
+          in: query
+          schema: { type: string }
+        - name: referenceType
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string }
+        - name: dateTo
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasuryTransactionList"
+
+  /treasury/sessions:
+    get:
+      operationId: listTreasurySessions
+      tags: [treasury]
+      summary: Treasury session history
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: treasuryAccountId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasurySessionList"
+    post:
+      operationId: openTreasurySession
+      tags: [treasury]
+      summary: Open a treasury session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenSessionInput"
+      responses:
+        "201":
+          description: Opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasurySession"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /treasury/sessions/current:
+    get:
+      operationId: getCurrentTreasurySession
+      tags: [treasury]
+      summary: Current open session for an account
+      parameters:
+        - name: treasuryAccountId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Current session or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentSessionResponse"
+
+  /treasury/sessions/{id}/close:
+    post:
+      operationId: closeTreasurySession
+      tags: [treasury]
+      summary: Close a treasury session
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseSessionInput"
+      responses:
+        "200":
+          description: Closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasurySession"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List customers
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: false }
+        - name: withDebtOnly
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Paginated customers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerList"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get a customer
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Deactivate a customer
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers/{id}/statement:
+    get:
+      operationId: getCustomerStatement
+      tags: [customers]
+      summary: Customer ledger / statement
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Statement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerStatement"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customers/{id}/payments:
+    post:
+      operationId: createCustomerPayment
+      tags: [customers]
+      summary: Record a customer payment (reduces debt)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInput"
+      responses:
+        "201":
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerTransaction"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /suppliers:
+    get:
+      operationId: listSuppliers
+      tags: [suppliers]
+      summary: List suppliers
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: includeInactive
+          in: query
+          schema: { type: boolean, default: false }
+        - name: withDebtOnly
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Paginated suppliers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierList"
+    post:
+      operationId: createSupplier
+      tags: [suppliers]
+      summary: Create a supplier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /suppliers/{id}:
+    get:
+      operationId: getSupplier
+      tags: [suppliers]
+      summary: Get a supplier
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateSupplier
+      tags: [suppliers]
+      summary: Update a supplier
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteSupplier
+      tags: [suppliers]
+      summary: Deactivate a supplier
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deactivated
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /suppliers/{id}/statement:
+    get:
+      operationId: getSupplierStatement
+      tags: [suppliers]
+      summary: Supplier ledger / statement
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Statement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierStatement"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /suppliers/{id}/payments:
+    post:
+      operationId: createSupplierPayment
+      tags: [suppliers]
+      summary: Record a supplier payment (reduces payable)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInput"
+      responses:
+        "201":
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierTransaction"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sales/invoices:
+    get:
+      operationId: listInvoices
+      tags: [sales]
+      summary: Sales history (paginated, filterable)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: customerId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: paymentStatus
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string }
+        - name: dateTo
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated invoices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+    post:
+      operationId: createSale
+      tags: [sales]
+      summary: Create a sale (atomic invoice + inventory + treasury + accounting)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSaleInput"
+      responses:
+        "201":
+          description: Sale completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /sales/invoices/lookup:
+    get:
+      operationId: lookupInvoice
+      tags: [sales]
+      summary: Find an invoice by number or barcode (for returns)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Invoice detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sales/invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [sales]
+      summary: Invoice detail (items + payments)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Invoice detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sales/returns:
+    get:
+      operationId: listSalesReturns
+      tags: [sales]
+      summary: Sales returns history
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: invoiceId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Paginated returns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesReturnList"
+    post:
+      operationId: createSalesReturn
+      tags: [sales]
+      summary: Create a sales return (reverses inventory + treasury + accounting)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSalesReturnInput"
+      responses:
+        "201":
+          description: Return completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesReturnDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sales/returns/{id}:
+    get:
+      operationId: getSalesReturn
+      tags: [sales]
+      summary: Sales return detail
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Return detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesReturnDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /suspended-orders:
+    get:
+      operationId: listSuspendedOrders
+      tags: [sales]
+      summary: List suspended (parked) orders
+      responses:
+        "200":
+          description: Suspended orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SuspendedOrder"
+    post:
+      operationId: createSuspendedOrder
+      tags: [sales]
+      summary: Park a cart as a suspended order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuspendedOrderInput"
+      responses:
+        "201":
+          description: Suspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuspendedOrder"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /suspended-orders/{id}:
+    delete:
+      operationId: deleteSuspendedOrder
+      tags: [sales]
+      summary: Delete a suspended order
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   parameters:
     IdParam:
@@ -1860,3 +2499,431 @@ components:
           minItems: 1
           items:
             $ref: "#/components/schemas/AdjustmentLine"
+
+    TreasuryAccount:
+      type: object
+      required: [id, type, name, balance, isActive]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        name: { type: string }
+        balance: { type: string }
+        isActive: { type: boolean }
+
+    TreasuryTransaction:
+      type: object
+      required: [id, treasuryAccountId, direction, amount, balanceAfter, referenceType, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        treasuryAccountId: { type: string, format: uuid }
+        accountName: { type: ["string", "null"] }
+        sessionId: { type: ["string", "null"] }
+        direction: { type: string }
+        amount: { type: string }
+        balanceAfter: { type: string }
+        referenceType: { type: string }
+        referenceId: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        userName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    TreasuryTransactionList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TreasuryTransaction" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    TreasurySession:
+      type: object
+      required: [id, treasuryAccountId, status, openingBalance, openedAt]
+      properties:
+        id: { type: string, format: uuid }
+        treasuryAccountId: { type: string, format: uuid }
+        accountName: { type: ["string", "null"] }
+        status: { type: string }
+        openingBalance: { type: string }
+        expectedClosingBalance: { type: ["string", "null"] }
+        actualClosingBalance: { type: ["string", "null"] }
+        variance: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        openedByName: { type: ["string", "null"] }
+        closedByName: { type: ["string", "null"] }
+        openedAt: { type: string, format: date-time }
+        closedAt: { type: ["string", "null"] }
+
+    TreasurySessionList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TreasurySession" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    CurrentSessionResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          oneOf:
+            - $ref: "#/components/schemas/TreasurySession"
+            - type: "null"
+
+    OpenSessionInput:
+      type: object
+      required: [treasuryAccountId, openingBalance]
+      properties:
+        treasuryAccountId: { type: string, format: uuid }
+        openingBalance: { type: number, minimum: 0 }
+        notes: { type: ["string", "null"] }
+
+    CloseSessionInput:
+      type: object
+      required: [actualClosingBalance]
+      properties:
+        actualClosingBalance: { type: number, minimum: 0 }
+        notes: { type: ["string", "null"] }
+
+    Customer:
+      type: object
+      required: [id, name, phone, creditLimit, currentBalance, isActive, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        phone: { type: string }
+        address: { type: ["string", "null"] }
+        creditLimit: { type: string }
+        currentBalance: { type: string }
+        notes: { type: ["string", "null"] }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    CustomerInput:
+      type: object
+      required: [name, phone]
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: string, minLength: 1 }
+        address: { type: ["string", "null"] }
+        creditLimit: { type: number, minimum: 0, default: 0 }
+        notes: { type: ["string", "null"] }
+
+    CustomerList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Customer" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    CustomerTransaction:
+      type: object
+      required: [id, customerId, type, debit, credit, balanceAfter, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        type: { type: string }
+        debit: { type: string }
+        credit: { type: string }
+        balanceAfter: { type: string }
+        referenceType: { type: ["string", "null"] }
+        referenceId: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    CustomerStatement:
+      type: object
+      required: [customer, items, total, page, pageSize]
+      properties:
+        customer: { $ref: "#/components/schemas/Customer" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CustomerTransaction" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    Supplier:
+      type: object
+      required: [id, name, phone, currentBalance, isActive, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        phone: { type: string }
+        address: { type: ["string", "null"] }
+        taxNumber: { type: ["string", "null"] }
+        currentBalance: { type: string }
+        notes: { type: ["string", "null"] }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    SupplierInput:
+      type: object
+      required: [name, phone]
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: string, minLength: 1 }
+        address: { type: ["string", "null"] }
+        taxNumber: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+
+    SupplierList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Supplier" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    SupplierTransaction:
+      type: object
+      required: [id, supplierId, type, debit, credit, balanceAfter, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        supplierId: { type: string, format: uuid }
+        type: { type: string }
+        debit: { type: string }
+        credit: { type: string }
+        balanceAfter: { type: string }
+        referenceType: { type: ["string", "null"] }
+        referenceId: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    SupplierStatement:
+      type: object
+      required: [supplier, items, total, page, pageSize]
+      properties:
+        supplier: { $ref: "#/components/schemas/Supplier" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SupplierTransaction" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    PaymentInput:
+      type: object
+      required: [amount, treasuryAccountId]
+      properties:
+        amount: { type: number, minimum: 0 }
+        treasuryAccountId: { type: string, format: uuid }
+        notes: { type: ["string", "null"] }
+
+    SaleItemInput:
+      type: object
+      required: [variantId, quantity, unitPrice]
+      properties:
+        variantId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+        unitPrice: { type: number, minimum: 0 }
+        discountAmount: { type: number, minimum: 0, default: 0 }
+
+    SalePaymentInput:
+      type: object
+      required: [method, amount]
+      properties:
+        method: { type: string, enum: [CASH, CARD, INSTAPAY, WALLET, CREDIT] }
+        amount: { type: number, minimum: 0 }
+        treasuryAccountId: { type: ["string", "null"], format: uuid }
+
+    CreateSaleInput:
+      type: object
+      required: [warehouseId, items, payments]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        customerId: { type: ["string", "null"], format: uuid }
+        discountAmount: { type: number, minimum: 0, default: 0 }
+        taxAmount: { type: number, minimum: 0, default: 0 }
+        notes: { type: ["string", "null"] }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/SaleItemInput" }
+        payments:
+          type: array
+          items: { $ref: "#/components/schemas/SalePaymentInput" }
+
+    Invoice:
+      type: object
+      required: [id, invoiceNumber, invoiceBarcode, warehouseId, saleType, subtotal, discountAmount, taxAmount, totalAmount, amountPaid, paymentStatus, returnStatus, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        invoiceNumber: { type: string }
+        invoiceBarcode: { type: string }
+        customerId: { type: ["string", "null"], format: uuid }
+        customerName: { type: ["string", "null"] }
+        warehouseId: { type: string, format: uuid }
+        warehouseName: { type: ["string", "null"] }
+        saleType: { type: string }
+        subtotal: { type: string }
+        discountAmount: { type: string }
+        taxAmount: { type: string }
+        totalAmount: { type: string }
+        totalCost: { type: string }
+        amountPaid: { type: string }
+        changeDue: { type: string }
+        paymentStatus: { type: string }
+        returnStatus: { type: string }
+        notes: { type: ["string", "null"] }
+        userName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    InvoiceItem:
+      type: object
+      required: [id, variantId, quantity, unitPrice, lineTotal]
+      properties:
+        id: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        sku: { type: ["string", "null"] }
+        barcode: { type: ["string", "null"] }
+        productName: { type: ["string", "null"] }
+        colorName: { type: ["string", "null"] }
+        sizeName: { type: ["string", "null"] }
+        quantity: { type: integer }
+        unitPrice: { type: string }
+        unitCost: { type: string }
+        discountAmount: { type: string }
+        lineTotal: { type: string }
+        returnedQuantity: { type: integer }
+
+    InvoicePayment:
+      type: object
+      required: [id, method, amount]
+      properties:
+        id: { type: string, format: uuid }
+        method: { type: string }
+        treasuryAccountId: { type: ["string", "null"], format: uuid }
+        accountName: { type: ["string", "null"] }
+        amount: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    InvoiceDetail:
+      allOf:
+        - $ref: "#/components/schemas/Invoice"
+        - type: object
+          required: [items, payments]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/InvoiceItem" }
+            payments:
+              type: array
+              items: { $ref: "#/components/schemas/InvoicePayment" }
+
+    InvoiceList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Invoice" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    SalesReturnItemInput:
+      type: object
+      required: [invoiceItemId, quantity]
+      properties:
+        invoiceItemId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+
+    CreateSalesReturnInput:
+      type: object
+      required: [invoiceId, items]
+      properties:
+        invoiceId: { type: string, format: uuid }
+        refundMethod: { type: string, enum: [CASH, CARD, INSTAPAY, WALLET, CREDIT], default: CASH }
+        treasuryAccountId: { type: ["string", "null"], format: uuid }
+        reason: { type: ["string", "null"] }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/SalesReturnItemInput" }
+
+    SalesReturn:
+      type: object
+      required: [id, returnNumber, invoiceId, totalAmount, refundMethod, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        returnNumber: { type: string }
+        invoiceId: { type: string, format: uuid }
+        invoiceNumber: { type: ["string", "null"] }
+        warehouseId: { type: string, format: uuid }
+        totalAmount: { type: string }
+        totalCost: { type: string }
+        refundMethod: { type: string }
+        reason: { type: ["string", "null"] }
+        userName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    SalesReturnItem:
+      type: object
+      required: [id, variantId, quantity, unitPrice, lineTotal]
+      properties:
+        id: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        sku: { type: ["string", "null"] }
+        productName: { type: ["string", "null"] }
+        quantity: { type: integer }
+        unitPrice: { type: string }
+        lineTotal: { type: string }
+
+    SalesReturnDetail:
+      allOf:
+        - $ref: "#/components/schemas/SalesReturn"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/SalesReturnItem" }
+
+    SalesReturnList:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SalesReturn" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    SuspendedOrder:
+      type: object
+      required: [id, cart, itemCount, totalAmount, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: ["string", "null"] }
+        customerId: { type: ["string", "null"], format: uuid }
+        customerName: { type: ["string", "null"] }
+        cart: {}
+        itemCount: { type: integer }
+        totalAmount: { type: string }
+        userName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    SuspendedOrderInput:
+      type: object
+      required: [cart]
+      properties:
+        label: { type: ["string", "null"] }
+        customerId: { type: ["string", "null"], format: uuid }
+        cart: {}
+        itemCount: { type: integer, minimum: 0, default: 0 }
+        totalAmount: { type: number, minimum: 0, default: 0 }

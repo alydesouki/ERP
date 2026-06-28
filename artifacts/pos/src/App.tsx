@@ -15,6 +15,9 @@ import { MasterDataPage } from "@/pages/master-data";
 import { WarehousesPage } from "@/pages/warehouses";
 import { StockPage } from "@/pages/stock";
 import { MovementsPage } from "@/pages/movements";
+import { CustomersPage } from "@/pages/customers";
+import { SuppliersPage } from "@/pages/suppliers";
+import { TreasuryPage } from "@/pages/treasury";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -73,6 +76,21 @@ function AuthenticatedApp() {
         <Route path="/movements">
           <PermissionGate permission="inventory.view">
             <MovementsPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/customers">
+          <PermissionGate permission="customers.view">
+            <CustomersPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/suppliers">
+          <PermissionGate permission="suppliers.view">
+            <SuppliersPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/treasury">
+          <PermissionGate permission="treasury.view">
+            <TreasuryPage />
           </PermissionGate>
         </Route>
         <Route path="/users">
