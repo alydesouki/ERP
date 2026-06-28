@@ -1,0 +1,2 @@
+- [Orval query invalidation](orval-query-invalidation.md) — generated query keys are path-prefixed (`["/api/users"]`), not operationId; invalidate by path or lists never refetch.
+- [POS Phase 1 decisions](pos-phase1.md) — multi-tenant shoe-retail POS; custom JWT auth, run-once single-store setup, Arabic RTL.

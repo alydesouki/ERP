@@ -139,7 +139,7 @@ export function Inventory() {
                           <div className={`w-14 h-14 rounded-xl ${product.imageBg} shrink-0 shadow-inner flex items-center justify-center overflow-hidden`}>
                             {/* Placeholder shoe image styling */}
                             <div className="w-10 h-6 bg-black/10 rounded-full blur-sm absolute translate-y-3 opacity-50"></div>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round" className="text-slate-400 w-8 h-8 relative z-10 -rotate-12">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 w-8 h-8 relative z-10 -rotate-12">
                               <path d="M12 21.5c-4.5 0-8-2-8-5.5S7.5 10 12 10s8 2.5 8 5.5-3.5 5.5-8 5.5z"/>
                               <path d="M12 10V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6"/>
                             </svg>

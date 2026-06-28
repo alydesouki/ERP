@@ -1,6 +1,6 @@
-# [Project name]
+# نظام نقاط البيع (Shoe Retail POS)
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Multi-tenant, Arabic-first (RTL) SaaS point-of-sale system for shoe retail stores. **Phase 1 (Foundation)** is implemented: run-once store setup, JWT auth with lockout, RTL app shell, Users & Roles RBAC, and immutable audit logs.
 
 ## Run & Operate
 
@@ -22,23 +22,34 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- DB schema (source of truth): `lib/db/src/schema/` (stores, roles, users, sessions, audit_logs)
+- Permissions catalog + default roles + Arabic labels: `lib/shared/src/`
+- API contract (source of truth): `artifacts/api-spec/` OpenAPI → codegen into `lib/api-client-react/src/generated/`
+- Backend routes: `artifacts/api-server/src/routes/` (auth, users, roles, audit), middleware in `.../middleware/auth.ts`
+- Frontend (Arabic RTL SPA, slug `pos`, served at `/`): `artifacts/pos/src/` — pages in `src/pages/`, auth context in `src/lib/auth.tsx`
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Custom JWT auth, not Clerk.** Access token (15m) kept in memory; refresh token (7d) in an HttpOnly cookie, rotated on refresh. Signing keys derived from `SESSION_SECRET`.
+- **Run-once setup → single store.** The setup wizard bootstraps exactly one store + admin and seeds system roles. Login queries by username (unambiguous while one store exists).
+- **RBAC via permission catalog.** Granular keys (`users.create/edit/delete`, `roles.manage`, `audit.view`); wildcard `*` for admin. UI gating mirrors server `requirePermission(...)`.
+- **Immutable audit log** — sensitive actions are recorded and never mutated.
+- **Multi-tenant-ready schema** (`storeId` on tenant tables, composite unique `(storeId, username)`) even though Phase 1 runs single-store.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Phase 1 capabilities: first-run store setup wizard; admin/staff login with failed-attempt lockout; Arabic RTL dashboard shell; user management (CRUD, password reset, soft delete, self-protection); role management (system-role protection, permission groups); audit log viewer.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Arabic-first, RTL UI throughout.
+- Strict scope discipline: build only the approved phase, then stop for user testing. Do not start the next phase without approval.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Orval query keys are **path-prefixed** (`["/api/users"]`), not operationId-based. Invalidate by path prefix after mutations or lists won't refetch.
+- Passing any `query` option to a generated hook requires `queryKey` — supply it via the matching `get…QueryKey(params)` getter.
+- After run-once setup completes, invalidate `getGetSetupStatusQueryKey()` before navigating or the app stays stuck on the setup screen.
 
 ## Pointers
 
