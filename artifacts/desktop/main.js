@@ -32,6 +32,7 @@ const APP_DATA_DIR = path.join(app.getPath("userData"), "ShoeStorePOS");
 const DB_PATH = path.join(APP_DATA_DIR, "store.db");
 const SECRET_PATH = path.join(APP_DATA_DIR, "secret.key");
 const LOG_PATH = path.join(APP_DATA_DIR, "app.log");
+const PRINTER_SETTINGS_PATH = path.join(APP_DATA_DIR, "printer-settings.json");
 
 // ---------------------------------------------------------------------------
 // Simple file logger (before pino is available)
@@ -292,8 +293,16 @@ function createWindow() {
   // Remove the default Electron menu bar
   Menu.setApplicationMenu(null);
 
-  // Load the POS frontend (served by the Express static middleware)
-  mainWindow.loadURL(`${API_BASE}`);
+  // Clear all storage data (cookies, localStorage, caches, etc.) to force login on every launch
+  mainWindow.webContents.session.clearStorageData()
+    .then(() => {
+      // Load the POS frontend (served by the Express static middleware)
+      mainWindow.loadURL(`${API_BASE}`);
+    })
+    .catch((err) => {
+      log("error", "Failed to clear storage data", { message: err.message });
+      mainWindow.loadURL(`${API_BASE}`);
+    });
 
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
@@ -361,33 +370,141 @@ function setupAutoUpdater() {
 }
 
 // ---------------------------------------------------------------------------
+// Silent printing via a dedicated hidden window
+// ---------------------------------------------------------------------------
+
+/**
+ * Print HTML to a physical printer.
+ *
+ * Root cause fix: calling webContents.print() on the main SPA window fails on
+ * Windows with "Invalid printer settings" because Chromium validates printer
+ * settings against the loaded document's layout metrics. A 1400×900 React app
+ * yields empty content/page/printable-area sizes (Electron #46921).
+ *
+ * Loading the print document alone in a hidden BrowserWindow gives Chromium
+ * valid dimensions and silent printing works reliably.
+ */
+async function printHtml(html, options = {}) {
+  if (!html || !String(html).trim()) {
+    return { success: false, error: "No print content" };
+  }
+
+  const tempPath = path.join(
+    app.getPath("temp"),
+    `pos-print-${Date.now()}-${Math.random().toString(36).slice(2)}.html`,
+  );
+
+  let printWindow = null;
+
+  try {
+    fs.writeFileSync(tempPath, html, "utf8");
+
+    printWindow = new BrowserWindow({
+      show: false,
+      width: 800,
+      height: 600,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    await printWindow.loadFile(tempPath);
+
+    // Allow fonts, images, SVG barcodes, and layout to settle before printing.
+    await printWindow.webContents.executeJavaScript(`
+      new Promise((resolve) => {
+        const done = () => requestAnimationFrame(() => requestAnimationFrame(resolve));
+        const waitImages = () => {
+          const images = Array.from(document.images);
+          if (images.length === 0) return Promise.resolve();
+          return Promise.all(
+            images.map(
+              (img) =>
+                new Promise((res) => {
+                  if (img.complete) {
+                    res(undefined);
+                    return;
+                  }
+                  img.addEventListener("load", () => res(undefined), { once: true });
+                  img.addEventListener("error", () => res(undefined), { once: true });
+                }),
+            ),
+          );
+        };
+        const fontsReady =
+          document.fonts && document.fonts.ready
+            ? document.fonts.ready.catch(() => undefined)
+            : Promise.resolve();
+        Promise.all([fontsReady, waitImages()]).then(done).catch(done);
+      })
+    `);
+
+    const printOptions = {
+      silent: options.silent !== false,
+      printBackground: true,
+      copies: options.copies || 1,
+    };
+
+    const deviceName = options.deviceName && String(options.deviceName).trim();
+    if (deviceName) {
+      printOptions.deviceName = deviceName;
+    }
+
+    if (options.pageSize) {
+      const ps = options.pageSize;
+      if (typeof ps === "object" && ps.width && ps.height) {
+        // Electron rejects usePrinterDefaultPageSize together with pageSize.
+        printOptions.pageSize = ps;
+      } else if (typeof ps === "string") {
+        printOptions.pageSize = ps;
+      } else {
+        printOptions.usePrinterDefaultPageSize = true;
+      }
+    } else {
+      printOptions.usePrinterDefaultPageSize = true;
+    }
+
+    return await new Promise((resolve) => {
+      printWindow.webContents.print(printOptions, (success, failureReason) => {
+        if (success) {
+          log("info", "Print job sent", {
+            deviceName: printOptions.deviceName || "(system default)",
+          });
+          resolve({ success: true });
+        } else {
+          log("warn", "Print job failed", {
+            failureReason,
+            deviceName: printOptions.deviceName,
+          });
+          resolve({ success: false, error: failureReason || "Print failed" });
+        }
+      });
+    });
+  } finally {
+    if (printWindow && !printWindow.isDestroyed()) {
+      printWindow.close();
+    }
+    try {
+      fs.unlinkSync(tempPath);
+    } catch {
+      // temp file may already be gone
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // IPC handlers
 // ---------------------------------------------------------------------------
 
 function setupIpcHandlers() {
-  // Silent thermal printing
   ipcMain.handle("print", async (_event, options) => {
-    if (!mainWindow) return { success: false, error: "No window" };
-
-    return new Promise((resolve) => {
-      const printOptions = {
-        silent: options?.silent !== false, // default: true (no dialog)
-        printBackground: true,
-        deviceName: options?.deviceName || "",
-        pageSize: options?.pageSize || { width: 80000, height: 0 }, // 80mm thermal
-        margins: { marginType: "none" },
-        copies: options?.copies || 1,
-      };
-
-      mainWindow.webContents.print(printOptions, (success, failureReason) => {
-        if (success) {
-          resolve({ success: true });
-        } else {
-          log("warn", "Print failed", { failureReason });
-          resolve({ success: false, error: failureReason });
-        }
-      });
-    });
+    try {
+      return await printHtml(options?.html, options);
+    } catch (error) {
+      log("error", "Print handler failed", { error: error.message });
+      return { success: false, error: error.message };
+    }
   });
 
   // Get available printers
@@ -406,6 +523,28 @@ function setupIpcHandlers() {
   // Open the AppData folder in Explorer (for backup/support)
   ipcMain.handle("open-data-folder", () => {
     shell.openPath(APP_DATA_DIR);
+  });
+
+  // Printer settings
+  ipcMain.handle("get-printer-settings", () => {
+    try {
+      if (fs.existsSync(PRINTER_SETTINGS_PATH)) {
+        return JSON.parse(fs.readFileSync(PRINTER_SETTINGS_PATH, "utf8"));
+      }
+    } catch (e) {
+      log("error", "Failed to read printer settings", { error: e.message });
+    }
+    return {};
+  });
+
+  ipcMain.handle("save-printer-settings", (_event, settings) => {
+    try {
+      fs.writeFileSync(PRINTER_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+      return { success: true };
+    } catch (e) {
+      log("error", "Failed to save printer settings", { error: e.message });
+      return { success: false, error: e.message };
+    }
   });
 }
 

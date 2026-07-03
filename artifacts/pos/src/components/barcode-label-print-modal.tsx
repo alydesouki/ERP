@@ -5,10 +5,12 @@ import { Modal } from "@/components/modal";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { PrintPortal } from "./print-portal";
+import { printBarcode, labelPageSize } from "@/lib/printer-settings";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type LabelSize =
+  | "47x25"
   | "20x10"
   | "30x20"
   | "40x25"
@@ -19,11 +21,17 @@ type LabelSize =
   | "60x40"
   | "100x50";
 
+const DEFAULT_LABEL_W_MM = 47;
+const DEFAULT_LABEL_H_MM = 25;
+const DEFAULT_LABEL_SIZE: LabelSize = "47x25";
+const MAX_COPIES = 100;
+
 /**
  * Standard thermal label sizes used widely in retail / POS environments.
  * Format: "WIDTHxHEIGHT" in mm (landscape orientation on the roll).
  */
 const LABEL_SIZES: { value: LabelSize; label: string; note?: string }[] = [
+  { value: "47x25", label: "47×25 مم",  note: "افتراضي" },
   { value: "20x10", label: "20×10 مم",  note: "مجوهرات" },
   { value: "30x20", label: "30×20 مم",  note: "أقراص / بطاقات صغيرة" },
   { value: "40x25", label: "40×25 مم",  note: "أحذية / ملابس" },
@@ -69,8 +77,8 @@ function resolveDims(
   customH: string,
 ): LabelDims {
   if (mode === "custom") {
-    const w = Math.max(10, Math.min(300, Number(customW) || 57));
-    const h = Math.max(10, Math.min(300, Number(customH) || 32));
+    const w = Math.max(10, Math.min(300, Number(customW) || DEFAULT_LABEL_W_MM));
+    const h = Math.max(10, Math.min(300, Number(customH) || DEFAULT_LABEL_H_MM));
     return { wMm: w, hMm: h };
   }
   const [rawW, rawH] = preset.split("x").map(Number);
@@ -98,8 +106,10 @@ function BarcodeDisplay({
   useEffect(() => {
     if (!ref.current) return;
     try {
-      JsBarcode(ref.current, value || "000000", {
-        format: "CODE128",
+      const barcodeValue = value || "000000";
+      const isEAN13 = /^\d{13}$/.test(barcodeValue);
+      JsBarcode(ref.current, barcodeValue, {
+        format: isEAN13 ? "EAN13" : "CODE128",
         /*
          * barWidth: narrower bar → more bars fit in limited label width.
          * For tiny labels (<= 30mm wide) we use 1.0, otherwise 1.2.
@@ -107,7 +117,7 @@ function BarcodeDisplay({
         width: forPrint ? (widthPx && widthPx < 30 * MM_TO_PX ? 1.0 : 1.2) : 1.2,
         height: heightMm * (forPrint ? 3.779528 : 1.5),
         displayValue: false,
-        margin: 0,
+        margin: 10,
         background: "transparent",
       });
     } catch {
@@ -283,6 +293,10 @@ function PrintableLabel({
   );
 }
 
+function clampCopies(value: number): number {
+  return Math.max(1, Math.min(MAX_COPIES, Math.floor(value) || 1));
+}
+
 // ── Main Modal ────────────────────────────────────────────────────────────────
 
 export function BarcodeLabelPrintModal({
@@ -296,11 +310,21 @@ export function BarcodeLabelPrintModal({
   const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id ?? "");
   const [copies, setCopies] = useState(1);
   const [sizeMode, setSizeMode] = useState<"preset" | "custom">("preset");
-  const [labelSize, setLabelSize] = useState<LabelSize>("57x32");
-  const [customW, setCustomW] = useState("57");
-  const [customH, setCustomH] = useState("32");
+  const [labelSize, setLabelSize] = useState<LabelSize>(DEFAULT_LABEL_SIZE);
+  const [customW, setCustomW] = useState(String(DEFAULT_LABEL_W_MM));
+  const [customH, setCustomH] = useState(String(DEFAULT_LABEL_H_MM));
 
   const printRefs = useRef<(SVGSVGElement | null)[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedVariantId(variants[0]?.id ?? "");
+    setCopies(1);
+    setSizeMode("preset");
+    setLabelSize(DEFAULT_LABEL_SIZE);
+    setCustomW(String(DEFAULT_LABEL_W_MM));
+    setCustomH(String(DEFAULT_LABEL_H_MM));
+  }, [open, variants]);
 
   const selectedVariant =
     variants.find((v) => v.id === selectedVariantId) ?? variants[0];
@@ -313,8 +337,10 @@ export function BarcodeLabelPrintModal({
     printRefs.current.forEach((svg) => {
       if (!svg) return;
       try {
-        JsBarcode(svg, selectedVariant.barcode || "000000", {
-          format: "CODE128",
+        const barcodeValue = selectedVariant.barcode || "000000";
+        const isEAN13 = /^\d{13}$/.test(barcodeValue);
+        JsBarcode(svg, barcodeValue, {
+          format: isEAN13 ? "EAN13" : "CODE128",
           /*
            * Bar width calibrated per label width:
            * - tiny (<=20mm): 0.8px bar width
@@ -329,7 +355,7 @@ export function BarcodeLabelPrintModal({
            */
           height: Math.min(40, Math.max(12, dims.hMm * 0.35 * MM_TO_PX)),
           displayValue: false,
-          margin: 0,
+          margin: 10,
           background: "transparent",
         });
       } catch {
@@ -339,8 +365,11 @@ export function BarcodeLabelPrintModal({
   }, [selectedVariant, copies, dims]);
 
   function handlePrint() {
-    // Small delay to ensure barcodes are fully rendered before dialog opens
-    setTimeout(() => window.print(), 80);
+    // Quantity is encoded in the print portal (N label elements). Do not pass
+    // `copies` to Electron — that would duplicate the whole document N times (N²).
+    void printBarcode({
+      pageSize: labelPageSize(dims.wMm, dims.hMm),
+    });
   }
 
   if (!selectedVariant) return null;
@@ -447,7 +476,7 @@ export function BarcodeLabelPrintModal({
                   value={customW}
                   onChange={(e) => setCustomW(e.target.value)}
                   className="text-center font-bold"
-                  placeholder="57"
+                  placeholder={String(DEFAULT_LABEL_W_MM)}
                 />
               </div>
               <div className="text-slate-400 font-bold pb-3">×</div>
@@ -460,7 +489,7 @@ export function BarcodeLabelPrintModal({
                   value={customH}
                   onChange={(e) => setCustomH(e.target.value)}
                   className="text-center font-bold"
-                  placeholder="32"
+                  placeholder={String(DEFAULT_LABEL_H_MM)}
                 />
               </div>
             </div>
@@ -472,14 +501,21 @@ export function BarcodeLabelPrintModal({
           <label className="block text-sm font-bold text-slate-700 mb-2">عدد النسخ</label>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setCopies((c) => Math.max(1, c - 1))}
+              onClick={() => setCopies((c) => clampCopies(c - 1))}
               className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
             >
               <Minus size={16} />
             </button>
-            <span className="w-12 text-center font-black text-xl text-slate-800">{copies}</span>
+            <Input
+              type="number"
+              min={1}
+              max={MAX_COPIES}
+              value={copies}
+              onChange={(e) => setCopies(clampCopies(Number(e.target.value)))}
+              className="w-20 text-center font-black text-xl text-slate-800"
+            />
             <button
-              onClick={() => setCopies((c) => Math.min(100, c + 1))}
+              onClick={() => setCopies((c) => clampCopies(c + 1))}
               className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
             >
               <Plus size={16} />

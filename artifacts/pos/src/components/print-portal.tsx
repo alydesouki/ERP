@@ -9,6 +9,9 @@ export function PrintPortal({ children, pageStyle }: { children: React.ReactNode
     if (!el) {
       el = document.createElement("div");
       el.id = "print-portal";
+      // Off-screen: content is rendered for Electron's hidden print window, not shown to the user.
+      el.style.cssText =
+        "position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;visibility:hidden;pointer-events:none;";
       document.body.appendChild(el);
     }
     setContainer(el);

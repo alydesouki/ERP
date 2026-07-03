@@ -40,6 +40,7 @@ import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { Modal } from "@/components/modal";
 import { ThermalReceipt, type ReceiptData } from "@/components/thermal-receipt";
 import { PrintPortal } from "@/components/print-portal";
+import { printReceipt } from "@/lib/printer-settings";
 
 const CUR = "ج.م";
 
@@ -222,10 +223,10 @@ export function POSPage() {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // ---- Auto-print after sale --------------------------------------------------
-  // When receiptData is set, wait one animation frame for the print portal to
-  // render, then trigger window.print() automatically.
-  // The 'afterprint' event fires when the print dialog closes — we use it to
-  // auto-close the receipt modal and reset the POS for the next sale.
+  // When receiptData is set, printReceipt waits for PrintPortal to render, then
+  // prints the portal content (silent in Electron, dialog in the browser).
+  // The 'afterprint' event fires when the browser print dialog closes — we use
+  // it to auto-close the receipt modal and reset the POS for the next sale.
   useEffect(() => {
     if (!receiptData) return;
 
@@ -239,15 +240,13 @@ export function POSPage() {
 
     window.addEventListener("afterprint", handleAfterPrint);
 
-    // Trigger print after DOM renders (double rAF for safety)
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.print();
-      });
+    void printReceipt().then(() => {
+      if (window.electronAPI) {
+        handleAfterPrint();
+      }
     });
 
     return () => {
-      cancelAnimationFrame(id);
       window.removeEventListener("afterprint", handleAfterPrint);
       void printed; // suppress lint unused warning
     };
@@ -837,7 +836,9 @@ export function POSPage() {
             </PrintPortal>
             <div className="flex gap-2 pt-2">
               <button
-                onClick={() => window.print()}
+                onClick={() => {
+                  void printReceipt().then(() => setReceiptData(null));
+                }}
                 className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl py-3 font-bold flex items-center justify-center gap-2"
                 data-testid="button-print"
               >

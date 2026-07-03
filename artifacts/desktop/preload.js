@@ -23,17 +23,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   platform: "electron",
 
   /**
-   * Silent thermal receipt printing.
+   * Silent printing via a dedicated hidden window.
    *
    * @param {Object} options
+   * @param {string}  options.html               - Full HTML document to print
    * @param {boolean} [options.silent=true]      - Skip print dialog
-   * @param {string}  [options.deviceName]       - Printer device name (empty = default printer)
-   * @param {Object}  [options.pageSize]         - Page dimensions in microns
+   * @param {string}  [options.deviceName]       - Printer device name (omit = default)
+   * @param {string|Object} [options.pageSize]   - "A4" or { width, height } in microns
    * @param {number}  [options.copies=1]         - Number of copies
    * @returns {Promise<{success: boolean, error?: string}>}
-   *
-   * Usage from React:
-   *   const result = await window.electronAPI.print({ silent: true, deviceName: 'EPSON TM-T20' });
    */
   print: (options) => ipcRenderer.invoke("print", options),
 
@@ -54,4 +52,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
    * Useful for IT support / backups.
    */
   openDataFolder: () => ipcRenderer.invoke("open-data-folder"),
+
+  /**
+   * Get configured printer settings.
+   */
+  getPrinterSettings: () => ipcRenderer.invoke("get-printer-settings"),
+
+  /**
+   * Save configured printer settings.
+   */
+  savePrinterSettings: (settings) => ipcRenderer.invoke("save-printer-settings", settings),
 });

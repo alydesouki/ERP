@@ -5,6 +5,7 @@ import {
   Save,
   Hash,
   Pencil,
+  Printer as PrinterIcon,
 } from "lucide-react";
 import {
   useGetStoreSettings,
@@ -21,6 +22,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/modal";
+import { getPrinterSettings, savePrinterSettings } from "@/lib/printer-settings";
 
 const inputClass =
   "w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition";
@@ -42,11 +44,12 @@ const SEQUENCE_LABELS: Record<string, string> = {
   STOCK_COUNT: "جرد مخزني",
 };
 
-type TabKey = "store" | "sequences";
+type TabKey = "store" | "sequences" | "printers";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "store", label: "إعدادات المتجر", icon: <SettingsIcon size={16} /> },
   { key: "sequences", label: "ترقيم المستندات", icon: <Hash size={16} /> },
+  { key: "printers", label: "الطابعات", icon: <PrinterIcon size={16} /> },
 ];
 
 export function SettingsPage() {
@@ -83,6 +86,7 @@ export function SettingsPage() {
 
         {tab === "store" && <StoreSettingsTab canManage={canManage} />}
         {tab === "sequences" && <SequencesTab canManage={canManage} />}
+        {tab === "printers" && <PrintersTab />}
       </div>
     </div>
   );
@@ -550,6 +554,164 @@ function SequencesTab({ canManage }: { canManage: boolean }) {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function PrintersTab() {
+  const [printers, setPrinters] = useState<ElectronPrinter[]>([]);
+  const [receiptPrinter, setReceiptPrinter] = useState("");
+  const [barcodePrinter, setBarcodePrinter] = useState("");
+  const [invoicePrinter, setInvoicePrinter] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        if (window.electronAPI) {
+          const list = await window.electronAPI.getPrinters();
+          setPrinters(list);
+        }
+        const settings = await getPrinterSettings();
+        setReceiptPrinter(settings.receiptPrinter || "");
+        setBarcodePrinter(settings.barcodePrinter || "");
+        setInvoicePrinter(settings.invoicePrinter || "");
+      } catch (err) {
+        setError("فشل تحميل إعدادات الطابعات");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    void load();
+  }, []);
+
+  async function handleSave() {
+    setIsSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      const res = await savePrinterSettings({
+        receiptPrinter,
+        barcodePrinter,
+        invoicePrinter,
+      });
+      if (res.success) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      } else {
+        setError(res.error || "تعذّر حفظ إعدادات الطابعات");
+      }
+    } catch (err) {
+      setError("حدث خطأ غير متوقع");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-12 text-center text-slate-400">
+        <Loader2 className="animate-spin inline" size={24} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+        <h3 className="font-bold text-slate-700">إعدادات الطباعة الافتراضية</h3>
+        
+        {!window.electronAPI && (
+          <div className="bg-amber-50 text-amber-700 p-4 rounded-xl text-sm font-bold">
+            أنت تستخدم نسخة المتصفح. يرجى استخدام تطبيق سطح المكتب للطباعة الصامتة والآلية.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-slate-600 mb-1.5">
+              طابعة الإيصالات (58mm / 80mm)
+            </label>
+            <select
+              className={inputClass}
+              value={receiptPrinter}
+              onChange={(e) => setReceiptPrinter(e.target.value)}
+            >
+              <option value="">طابعة النظام الافتراضية</option>
+              {printers.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-600 mb-1.5">
+              طابعة الباركود / الملصقات
+            </label>
+            <select
+              className={inputClass}
+              value={barcodePrinter}
+              onChange={(e) => setBarcodePrinter(e.target.value)}
+            >
+              <option value="">طابعة النظام الافتراضية</option>
+              {printers.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-600 mb-1.5">
+              طابعة الفواتير (A4)
+            </label>
+            <select
+              className={inputClass}
+              value={invoicePrinter}
+              onChange={(e) => setInvoicePrinter(e.target.value)}
+            >
+              <option value="">طابعة النظام الافتراضية</option>
+              {printers.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 text-red-600 text-sm rounded-xl p-3 text-center">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center justify-end gap-3">
+        {saved && (
+          <span className="text-emerald-600 text-sm font-bold">
+            تم الحفظ ✓
+          </span>
+        )}
+        <button
+          onClick={() => void handleSave()}
+          disabled={isSaving}
+          className="flex items-center gap-2 bg-amber-500 text-slate-900 font-bold px-6 py-2.5 rounded-xl hover:bg-amber-400 transition disabled:opacity-60"
+        >
+          {isSaving ? (
+            <Loader2 className="animate-spin" size={18} />
+          ) : (
+            <Save size={18} />
+          )}
+          حفظ إعدادات الطابعات
+        </button>
+      </div>
     </div>
   );
 }

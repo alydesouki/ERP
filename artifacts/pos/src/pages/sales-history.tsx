@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Receipt, Search, Loader2, Eye, ChevronLeft, ChevronRight } from "lucide-react";
-import { useListInvoices, useGetInvoice } from "@workspace/api-client-react";
+import { Receipt, Search, Loader2, Eye, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { useListInvoices, useGetInvoice, useGetStoreSettings } from "@workspace/api-client-react";
 import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/modal";
+import { PrintPortal } from "@/components/print-portal";
+import { printInvoice } from "@/lib/printer-settings";
+import { A4Invoice } from "@/components/a4-invoice";
 
 const CUR = "ج.م";
 
@@ -162,7 +165,24 @@ export function SalesHistoryPage() {
 
 function InvoiceDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   const query = useGetInvoice(id);
+  const settingsQuery = useGetStoreSettings();
   const inv = query.data;
+
+  function handlePrint() {
+    void printInvoice();
+  }
+
+  const pageStyle = `
+    size: A4;
+    margin: 0;
+  `;
+
+  const bodyHideStyle = `
+    @media print {
+      body > *:not(#print-portal) { display: none !important; }
+      #print-portal { display: block !important; position: static !important; width: 100% !important; }
+    }
+  `;
 
   return (
     <Modal open onClose={onClose} title={inv ? `فاتورة ${inv.invoiceNumber}` : "تفاصيل الفاتورة"} maxWidth="max-w-2xl">
@@ -250,6 +270,20 @@ function InvoiceDetailModal({ id, onClose }: { id: string; onClose: () => void }
               </div>
             </div>
           )}
+
+          <div className="flex justify-end pt-4 mt-4 border-t border-slate-100">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-slate-900 font-bold rounded-xl hover:bg-amber-400 transition"
+            >
+              <Printer size={18} /> طباعة الفاتورة A4
+            </button>
+          </div>
+          
+          <PrintPortal pageStyle={pageStyle}>
+            <style dangerouslySetInnerHTML={{ __html: bodyHideStyle }} />
+            <A4Invoice invoice={inv} storeName={settingsQuery.data?.storeName} />
+          </PrintPortal>
         </div>
       )}
     </Modal>

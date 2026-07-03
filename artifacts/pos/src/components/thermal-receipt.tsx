@@ -88,7 +88,7 @@ function InvoiceBarcodeDisplay({ value }: { value: string }) {
         height: 40,
         displayValue: true,
         fontSize: 10,
-        margin: 2,
+        margin: 10,
         background: "transparent",
         lineColor: "#000000",
       });

@@ -26,13 +26,15 @@ interface ElectronPrinter {
 interface ElectronPrintOptions {
   /** Whether to skip the print dialog. Defaults to true. */
   silent?: boolean;
-  /** Printer device name. Empty string = system default printer. */
+  /** Full HTML document to print (required in Electron). */
+  html?: string;
+  /** Printer device name. Omit to use the system default printer. */
   deviceName?: string;
   /**
-   * Page size in microns (1mm = 1000 microns).
-   * For 80mm thermal: { width: 80000, height: 0 }
+   * Page size: named paper (e.g. "A4") or { width, height } in microns.
+   * Omit for thermal roll printers — the driver default is used.
    */
-  pageSize?: { width: number; height: number };
+  pageSize?: string | { width: number; height: number };
   /** Number of copies to print. Defaults to 1. */
   copies?: number;
 }
@@ -50,10 +52,10 @@ interface ElectronAPI {
   readonly platform: "electron";
 
   /**
-   * Print the current page silently (no dialog) to the specified printer.
-   * Uses Electron's webContents.print() under the hood.
+   * Print an HTML document silently (no dialog) to the specified printer.
+   * Loads the HTML in a hidden window and sends it to the printer.
    */
-  print(options?: ElectronPrintOptions): Promise<ElectronPrintResult>;
+  print(options: ElectronPrintOptions): Promise<ElectronPrintResult>;
 
   /**
    * Get the list of installed printers from the OS.
@@ -70,14 +72,28 @@ interface ElectronAPI {
    * Useful for taking manual backups of the SQLite database.
    */
   openDataFolder(): Promise<void>;
+
+  /**
+   * Get configured printer settings.
+   */
+  getPrinterSettings(): Promise<PrinterSettings>;
+
+  /**
+   * Save configured printer settings.
+   */
+  savePrinterSettings(settings: PrinterSettings): Promise<{ success: boolean; error?: string }>;
 }
 
-declare global {
-  interface Window {
-    /**
-     * Electron IPC bridge exposed via contextBridge in preload.js.
-     * `undefined` when running in a regular browser.
-     */
-    electronAPI?: ElectronAPI;
-  }
+interface PrinterSettings {
+  receiptPrinter?: string;
+  barcodePrinter?: string;
+  invoicePrinter?: string;
+}
+
+interface Window {
+  /**
+   * Electron IPC bridge exposed via contextBridge in preload.js.
+   * `undefined` when running in a regular browser.
+   */
+  electronAPI?: ElectronAPI;
 }
