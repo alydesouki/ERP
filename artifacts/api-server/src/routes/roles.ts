@@ -57,7 +57,7 @@ router.get("/roles", requireAuth, requirePermission("roles.view"), async (req, r
       isSystem: rolesTable.isSystem,
       createdAt: rolesTable.createdAt,
       userCount: sql<number>`(
-        select count(*)::int from ${usersTable}
+        select count(*) from ${usersTable}
         where ${usersTable.roleId} = ${rolesTable.id}
           and ${usersTable.isDeleted} = false
       )`,
@@ -136,7 +136,7 @@ router.get("/roles/:id", requireAuth, requirePermission("roles.view"), async (re
       isSystem: rolesTable.isSystem,
       createdAt: rolesTable.createdAt,
       userCount: sql<number>`(
-        select count(*)::int from ${usersTable}
+        select count(*) from ${usersTable}
         where ${usersTable.roleId} = ${rolesTable.id}
           and ${usersTable.isDeleted} = false
       )`,
@@ -232,7 +232,7 @@ router.patch("/roles/:id", requireAuth, requirePermission("roles.manage"), async
       isSystem: rolesTable.isSystem,
       createdAt: rolesTable.createdAt,
       userCount: sql<number>`(
-        select count(*)::int from ${usersTable}
+        select count(*) from ${usersTable}
         where ${usersTable.roleId} = ${rolesTable.id}
           and ${usersTable.isDeleted} = false
       )`,
@@ -267,7 +267,7 @@ router.delete("/roles/:id", requireAuth, requirePermission("roles.manage"), asyn
   }
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(*)` })
     .from(usersTable)
     .where(
       and(

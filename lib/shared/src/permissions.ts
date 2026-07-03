@@ -92,6 +92,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: [
       { key: "finance.view", labelAr: "عرض المالية" },
       { key: "finance.manage", labelAr: "إدارة المصروفات والرواتب" },
+      { key: "expenses.create", labelAr: "إنشاء مصروف" },
     ],
   },
   {

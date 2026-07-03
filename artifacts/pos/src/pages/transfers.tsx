@@ -26,6 +26,7 @@ import {
   type ProductVariant,
   type TransferSummary,
 } from "@workspace/api-client-react";
+import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
@@ -338,7 +339,7 @@ function CreateTransferModal({
             <input
               className={`${inputClass} pr-10`}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearch(normalizeBarcodeInput(e.target.value))}
               placeholder="اسم المنتج أو الباركود"
               data-testid="input-transfer-search"
             />

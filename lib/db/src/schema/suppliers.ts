@@ -1,13 +1,14 @@
-import { boolean, index, numeric, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import crypto from "crypto";
+import { integer, index, text, sqliteTable } from "drizzle-orm/sqlite-core";
 import { storesTable } from "./stores";
 
 // Suppliers are required for all purchases. currentBalance is what the store
 // owes the supplier (a payable); kept in sync with supplier_transactions.
-export const suppliersTable = pgTable(
+export const suppliersTable = sqliteTable(
   "suppliers",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
@@ -15,11 +16,11 @@ export const suppliersTable = pgTable(
     address: text("address"),
     taxNumber: text("tax_number"),
     // Positive balance = store owes the supplier.
-    currentBalance: numeric("current_balance", { precision: 14, scale: 2 }).notNull().default("0"),
+    currentBalance: text("current_balance").notNull().default("0"),
     notes: text("notes"),
-    isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    isActive: integer("is_active", { mode: 'boolean' }).notNull().default(true),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
@@ -30,35 +31,35 @@ export const suppliersTable = pgTable(
   ],
 );
 
-export const supplierTxTypeEnum = pgEnum("supplier_tx_type", [
+export const supplierTxTypeEnum = [
   "PURCHASE",
   "PAYMENT",
   "RETURN",
   "OPENING_BALANCE",
   "ADJUSTMENT",
-]);
+] as const;
 
 // Immutable running-balance ledger for a supplier. credit increases what the
 // store owes; debit (payment/return) decreases it. balanceAfter is the payable.
-export const supplierTransactionsTable = pgTable(
+export const supplierTransactionsTable = sqliteTable(
   "supplier_transactions",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
-    supplierId: uuid("supplier_id")
+    supplierId: text("supplier_id")
       .notNull()
       .references(() => suppliersTable.id, { onDelete: "restrict" }),
-    type: supplierTxTypeEnum("type").notNull(),
-    debit: numeric("debit", { precision: 14, scale: 2 }).notNull().default("0"),
-    credit: numeric("credit", { precision: 14, scale: 2 }).notNull().default("0"),
-    balanceAfter: numeric("balance_after", { precision: 14, scale: 2 }).notNull(),
+    type: text("type", { enum: supplierTxTypeEnum }).notNull(),
+    debit: text("debit").notNull().default("0"),
+    credit: text("credit").notNull().default("0"),
+    balanceAfter: text("balance_after").notNull(),
     referenceType: text("reference_type"),
-    referenceId: uuid("reference_id"),
+    referenceId: text("reference_id"),
     description: text("description"),
-    createdBy: uuid("created_by"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [
     index("supplier_tx_supplier_idx").on(table.supplierId, table.createdAt),

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or, sql, inArray } from "drizzle-orm";
 import {
   db,
   colorsTable,
@@ -160,15 +160,15 @@ router.get("/sales/invoices", requireAuth, requirePermission("sales.view"), asyn
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
     const cond = or(
-      ilike(invoicesTable.invoiceNumber, term),
-      ilike(invoicesTable.invoiceBarcode, term),
+      like(invoicesTable.invoiceNumber, term),
+      like(invoicesTable.invoiceBarcode, term),
     );
     if (cond) conditions.push(cond);
   }
   const where = and(...conditions);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
     .from(invoicesTable)
     .where(where);
 
@@ -327,7 +327,7 @@ router.post("/sales/invoices", requireAuth, requirePermission("sales.create"), a
         .where(
           and(
             eq(productVariantsTable.storeId, storeId),
-            sql`${productVariantsTable.id} = ANY(${sql.raw(`ARRAY[${variantIds.map((v) => `'${v}'`).join(",")}]::uuid[]`)})`,
+            inArray(productVariantsTable.id, variantIds)
           ),
         );
       const variantById = new Map(variants.map((v) => [v.id, v]));
@@ -376,7 +376,6 @@ router.post("/sales/invoices", requireAuth, requirePermission("sales.create"), a
           })
           .from(customersTable)
           .where(and(eq(customersTable.id, customerId), eq(customersTable.storeId, storeId)))
-          .for("update")
           .limit(1);
         if (!c) throw new Error("CUSTOMER_NOT_FOUND");
         customer = c;
@@ -575,6 +574,7 @@ router.post("/sales/invoices", requireAuth, requirePermission("sales.create"), a
     res.status(201).json(detail);
   } catch (err) {
     if (err instanceof Error && handleSaleError(err, res)) return;
+    console.error("[CHECKOUT ERROR]", err);
     throw err;
   }
 });
@@ -619,7 +619,7 @@ router.get("/sales/returns", requireAuth, requirePermission("sales.return"), asy
   const where = and(...conditions);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
     .from(salesReturnsTable)
     .where(where);
 
@@ -736,7 +736,6 @@ router.post("/sales/returns", requireAuth, requirePermission("sales.return"), as
         })
         .from(invoicesTable)
         .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.storeId, storeId)))
-        .for("update")
         .limit(1);
       if (!invoice) throw new Error("INVOICE_NOT_FOUND");
 
@@ -874,8 +873,6 @@ router.post("/sales/returns", requireAuth, requirePermission("sales.return"), as
         const [c] = await tx
           .select({ id: customersTable.id, currentBalance: customersTable.currentBalance })
           .from(customersTable)
-          .where(eq(customersTable.id, invoice.customerId))
-          .for("update")
           .limit(1);
         if (!c) throw new Error("CUSTOMER_NOT_FOUND");
         const newBalance = toNum(c.currentBalance) - totalAmount;

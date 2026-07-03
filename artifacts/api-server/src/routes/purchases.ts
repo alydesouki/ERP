@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or, sql, inArray } from "drizzle-orm";
 import {
   db,
   colorsTable,
@@ -154,15 +154,15 @@ router.get(
     if (search && search.trim()) {
       const term = `%${search.trim()}%`;
       const cond = or(
-        ilike(purchaseInvoicesTable.invoiceNumber, term),
-        ilike(purchaseInvoicesTable.supplierInvoiceNumber, term),
+        like(purchaseInvoicesTable.invoiceNumber, term),
+        like(purchaseInvoicesTable.supplierInvoiceNumber, term),
       );
       if (cond) conditions.push(cond);
     }
     const where = and(...conditions);
 
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(purchaseInvoicesTable)
       .where(where);
 
@@ -279,7 +279,7 @@ router.post(
           })
           .from(suppliersTable)
           .where(and(eq(suppliersTable.id, supplierId), eq(suppliersTable.storeId, storeId)))
-          .for("update")
+          
           .limit(1);
         if (!supplier) throw new Error("SUPPLIER_NOT_FOUND");
 
@@ -298,7 +298,7 @@ router.post(
           .where(
             and(
               eq(productVariantsTable.storeId, storeId),
-              sql`${productVariantsTable.id} = ANY(${sql.raw(`ARRAY[${variantIds.map((v) => `'${v}'`).join(",")}]::uuid[]`)})`,
+              inArray(productVariantsTable.id, variantIds),
             ),
           );
         const variantSet = new Set(variants.map((v) => v.id));
@@ -529,7 +529,7 @@ router.get(
     const where = and(...conditions);
 
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(purchaseReturnsTable)
       .where(where);
 
@@ -647,7 +647,7 @@ router.post(
           })
           .from(purchaseInvoicesTable)
           .where(and(eq(purchaseInvoicesTable.id, purchaseId), eq(purchaseInvoicesTable.storeId, storeId)))
-          .for("update")
+          
           .limit(1);
         if (!purchase) throw new Error("PURCHASE_NOT_FOUND");
 
@@ -781,7 +781,7 @@ router.post(
             .select({ id: suppliersTable.id, currentBalance: suppliersTable.currentBalance })
             .from(suppliersTable)
             .where(eq(suppliersTable.id, purchase.supplierId))
-            .for("update")
+            
             .limit(1);
           if (!s) throw new Error("SUPPLIER_NOT_FOUND");
           const newBalance = toNum(s.currentBalance) - totalAmount;

@@ -1,6 +1,7 @@
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { queryClient } from "@/lib/query-client";
 import { useGetSetupStatus } from "@workspace/api-client-react";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/app-shell";
@@ -30,11 +31,8 @@ import { TransfersPage } from "@/pages/transfers";
 import { StockCountsPage } from "@/pages/stock-counts";
 import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: false, refetchOnWindowFocus: false },
-  },
-});
+// queryClient is defined in @/lib/query-client — it includes the generic
+// lookup-sync MutationCache that invalidates all dropdowns on any mutation.
 
 function FullScreenLoader() {
   return (
@@ -46,13 +44,20 @@ function FullScreenLoader() {
 
 function PermissionGate({
   permission,
+  anyOf,
   children,
 }: {
-  permission: string;
+  permission?: string;
+  anyOf?: string[];
   children: React.ReactNode;
 }) {
   const { hasPermission } = useAuth();
-  if (!hasPermission(permission)) {
+  
+  let ok = false;
+  if (permission && hasPermission(permission)) ok = true;
+  if (anyOf && anyOf.some(p => hasPermission(p))) ok = true;
+
+  if (!ok) {
     return <Redirect to="/dashboard" />;
   }
   return <>{children}</>;
@@ -139,7 +144,7 @@ function AuthenticatedApp() {
           </PermissionGate>
         </Route>
         <Route path="/finance">
-          <PermissionGate permission="finance.view">
+          <PermissionGate anyOf={["finance.view", "expenses.create"]}>
             <FinancePage />
           </PermissionGate>
         </Route>

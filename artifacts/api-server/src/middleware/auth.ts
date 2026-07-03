@@ -119,4 +119,21 @@ export function requirePermission(permission: string): RequestHandler {
   };
 }
 
+// Guards a route behind multiple permission keys (OR logic).
+export function requireAnyPermission(permissions: string[]): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const auth = req.auth;
+    if (!auth) {
+      res.status(401).json({ error: "غير مصرح" });
+      return;
+    }
+    const hasAny = permissions.some((p) => hasPermission(auth.permissions, p));
+    if (!hasAny) {
+      res.status(403).json({ error: "لا تملك صلاحية لهذا الإجراء" });
+      return;
+    }
+    next();
+  };
+}
+
 export { WILDCARD_PERMISSION };

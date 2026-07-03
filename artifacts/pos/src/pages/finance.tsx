@@ -79,7 +79,12 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 
 export function FinancePage() {
   const { hasPermission } = useAuth();
-  const canManage = hasPermission("finance.manage");
+  const canManage = hasPermission("finance.manage") || hasPermission("expenses.create");
+  const canViewFinance = hasPermission("finance.view");
+  const canCreateExpense = hasPermission("expenses.create");
+  
+  const availableTabs = TABS.filter(t => t.key === "expenses" ? canViewFinance || canCreateExpense : canViewFinance);
+
   const [tab, setTab] = useState<TabKey>("expenses");
 
   return (
@@ -92,7 +97,7 @@ export function FinancePage() {
         />
 
         <div className="flex flex-wrap gap-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-2">
-          {TABS.map((t) => (
+          {availableTabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -427,6 +432,11 @@ function ExpensesTab({ canManage }: { canManage: boolean }) {
       });
       void queryClient.invalidateQueries({ queryKey: ["/api/finance/expenses"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+      
+      // Real-time Reports Sync
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/expenses"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/profit-loss"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
       setModalOpen(false);
     } catch (err) {
       setError(apiErrorMessage(err, "تعذّر تسجيل المصروف."));
@@ -752,6 +762,10 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
     void queryClient.invalidateQueries({ queryKey: ["/api/finance/salaries"] });
     void queryClient.invalidateQueries({ queryKey: ["/api/finance/employees"] });
     void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+    
+    // Real-time Reports Sync
+    void queryClient.invalidateQueries({ queryKey: ["/api/reports/profit-loss"] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
   }
 
   function openAdd() {
@@ -767,7 +781,11 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
   function onEmployeeChange(id: string) {
     setEmployeeId(id);
     const emp = employees.find((e) => e.id === id);
-    if (emp) setBaseSalary(emp.monthlySalary);
+    if (emp) {
+      setBaseSalary(emp.monthlySalary);
+      const adv = Number(emp.advanceBalance) || 0;
+      if (adv > 0) setDeductions(adv.toString());
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -1042,6 +1060,9 @@ function AdvancesTab({ canManage }: { canManage: boolean }) {
       void queryClient.invalidateQueries({ queryKey: ["/api/finance/advances"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/finance/employees"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+      
+      // Real-time Reports Sync
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
       setModalOpen(false);
     } catch (err) {
       setError(apiErrorMessage(err, "تعذّر تسجيل السلفة."));

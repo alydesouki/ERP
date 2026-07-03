@@ -35,6 +35,12 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { toNum } from "../lib/money";
+function endOfDay(d: Date): Date {
+  const e = new Date(d);
+  e.setHours(23, 59, 59, 999);
+  return e;
+}
+import { AnalyticsService } from "../lib/analytics-service";
 
 const router: IRouter = Router();
 
@@ -42,15 +48,9 @@ function dateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function endOfDay(d: Date): Date {
-  const e = new Date(d);
-  e.setHours(23, 59, 59, 999);
-  return e;
-}
-
 const variantLabel = sql<
   string | null
->`nullif(trim(concat_ws(' / ', ${colorsTable.name}, ${sizesTable.name})), '')`;
+>`nullif(trim(coalesce(${colorsTable.name}, '') || ' / ' || coalesce(${sizesTable.name}, ''), ' / '), '')`;
 
 // ── Sales summary ───────────────────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ router.get(
         total: invoicesTable.totalAmount,
         paymentMethod: sql<
           string | null
-        >`string_agg(distinct ${invoicePaymentsTable.method}::text, ', ')`,
+        >`group_concat(distinct ${invoicePaymentsTable.method})`,
         paymentStatus: invoicesTable.paymentStatus,
       })
       .from(invoicesTable)
@@ -160,7 +160,7 @@ router.get(
         quantity: inventoryItemsTable.quantity,
         reorderPoint: productsTable.reorderPoint,
         cost: productVariantsTable.costPrice,
-        value: sql<number>`(${inventoryItemsTable.quantity} * ${productVariantsTable.costPrice})::float8`,
+        value: sql<number>`CAST(${inventoryItemsTable.quantity} * CAST(${productVariantsTable.costPrice} AS REAL) AS REAL)`,
       })
       .from(inventoryItemsTable)
       .innerJoin(productVariantsTable, eq(productVariantsTable.id, inventoryItemsTable.variantId))
@@ -232,58 +232,18 @@ router.get(
     const storeId = req.auth!.storeId;
     const q = GetProfitLossReportQueryParams.parse(req.query);
 
-    const salesConds: SQL[] = [eq(invoicesTable.storeId, storeId)];
-    if (q.fromDate) salesConds.push(gte(invoicesTable.createdAt, q.fromDate));
-    if (q.toDate) salesConds.push(lte(invoicesTable.createdAt, endOfDay(q.toDate)));
+    const salesAgg = await AnalyticsService.getSalesKPIs(storeId, q.fromDate, q.toDate);
+    const returnAgg = await AnalyticsService.getSalesReturnsKPIs(storeId, q.fromDate, q.toDate);
+    const expAgg = await AnalyticsService.getExpensesKPIs(storeId, q.fromDate, q.toDate);
+    const salaryAgg = await AnalyticsService.getSalariesKPIs(storeId, q.fromDate, q.toDate);
 
-    const [salesAgg] = await db
-      .select({
-        revenue: sql<number>`coalesce(sum(${invoicesTable.totalAmount}),0)::float8`,
-        cogs: sql<number>`coalesce(sum(${invoicesTable.totalCost}),0)::float8`,
-      })
-      .from(invoicesTable)
-      .where(and(...salesConds));
-
-    const returnConds: SQL[] = [eq(salesReturnsTable.storeId, storeId)];
-    if (q.fromDate) returnConds.push(gte(salesReturnsTable.createdAt, q.fromDate));
-    if (q.toDate) returnConds.push(lte(salesReturnsTable.createdAt, endOfDay(q.toDate)));
-
-    const [returnAgg] = await db
-      .select({
-        total: sql<number>`coalesce(sum(${salesReturnsTable.totalAmount}),0)::float8`,
-        cost: sql<number>`coalesce(sum(${salesReturnsTable.totalCost}),0)::float8`,
-      })
-      .from(salesReturnsTable)
-      .where(and(...returnConds));
-
-    const expConds: SQL[] = [eq(expensesTable.storeId, storeId)];
-    if (q.fromDate) expConds.push(gte(expensesTable.expenseDate, dateStr(q.fromDate)));
-    if (q.toDate) expConds.push(lte(expensesTable.expenseDate, dateStr(q.toDate)));
-
-    const [expAgg] = await db
-      .select({ total: sql<number>`coalesce(sum(${expensesTable.amount}),0)::float8` })
-      .from(expensesTable)
-      .where(and(...expConds));
-
-    const salaryConds: SQL[] = [
-      eq(salaryRecordsTable.storeId, storeId),
-      eq(salaryRecordsTable.status, "PAID"),
-    ];
-    if (q.fromDate) salaryConds.push(gte(salaryRecordsTable.paidAt, q.fromDate));
-    if (q.toDate) salaryConds.push(lte(salaryRecordsTable.paidAt, endOfDay(q.toDate)));
-
-    const [salaryAgg] = await db
-      .select({ total: sql<number>`coalesce(sum(${salaryRecordsTable.netAmount}),0)::float8` })
-      .from(salaryRecordsTable)
-      .where(and(...salaryConds));
-
-    const revenue = salesAgg?.revenue ?? 0;
-    const salesReturns = returnAgg?.total ?? 0;
+    const revenue = salesAgg.revenue ?? 0;
+    const salesReturns = returnAgg.total ?? 0;
     const netRevenue = revenue - salesReturns;
-    const cogs = (salesAgg?.cogs ?? 0) - (returnAgg?.cost ?? 0);
+    const cogs = (salesAgg.cost ?? 0) - (returnAgg.cost ?? 0);
     const grossProfit = netRevenue - cogs;
-    const expenses = expAgg?.total ?? 0;
-    const salaries = salaryAgg?.total ?? 0;
+    const expenses = expAgg.total ?? 0;
+    const salaries = salaryAgg.total ?? 0;
     const netProfit = grossProfit - expenses - salaries;
 
     res.json({
@@ -394,8 +354,8 @@ router.get(
         variantId: invoiceItemsTable.variantId,
         productName: productsTable.name,
         sku: productVariantsTable.sku,
-        quantitySold: sql<number>`coalesce(sum(${invoiceItemsTable.quantity}),0)::int`,
-        revenue: sql<number>`coalesce(sum(${invoiceItemsTable.lineTotal}),0)::float8`,
+        quantitySold: sql<number>`CAST(coalesce(sum(${invoiceItemsTable.quantity}),0) AS INTEGER)`,
+        revenue: sql<number>`CAST(coalesce(sum(${invoiceItemsTable.lineTotal}), 0) AS REAL)`,
       })
       .from(invoiceItemsTable)
       .innerJoin(invoicesTable, eq(invoicesTable.id, invoiceItemsTable.invoiceId))

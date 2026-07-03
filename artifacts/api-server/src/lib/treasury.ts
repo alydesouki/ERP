@@ -48,7 +48,7 @@ export async function postTreasuryTransaction(
         eq(treasuryAccountsTable.storeId, p.storeId),
       ),
     )
-    .for("update")
+    
     .limit(1);
   if (!acct) throw new Error("TREASURY_ACCOUNT_NOT_FOUND");
 

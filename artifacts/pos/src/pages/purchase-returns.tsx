@@ -246,6 +246,12 @@ function CreateReturnModal({ onClose }: { onClose: () => void }) {
       void queryClient.invalidateQueries({ queryKey: ["/api/purchases/invoices"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      
+      // Real-time Reports Sync
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/purchases-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/profit-loss"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/inventory-stock"] });
       onClose();
     } catch (err) {
       setError(apiErrorMessage(err, "تعذّر إنشاء المرتجع"));

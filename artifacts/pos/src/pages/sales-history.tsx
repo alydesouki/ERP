@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Receipt, Search, Loader2, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { useListInvoices, useGetInvoice } from "@workspace/api-client-react";
+import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/modal";
 
@@ -67,7 +68,7 @@ export function SalesHistoryPage() {
             <input
               value={search}
               onChange={(e) => {
-                setSearch(e.target.value);
+                setSearch(normalizeBarcodeInput(e.target.value));
                 setPage(1);
               }}
               placeholder="بحث برقم الفاتورة أو الباركود..."

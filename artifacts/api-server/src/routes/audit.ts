@@ -26,7 +26,7 @@ router.get("/audit-logs", requireAuth, requirePermission("audit.view"), async (r
   const where = and(...conditions);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(*)` })
     .from(auditLogsTable)
     .where(where);
 

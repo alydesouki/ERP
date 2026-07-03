@@ -12,11 +12,13 @@ import {
   ChevronRight,
   PackagePlus,
   List,
+  UserPlus,
 } from "lucide-react";
 import {
   useListPurchases,
   useGetPurchase,
   useCreatePurchase,
+  useCreateSupplier,
   useListSuppliers,
   useListWarehouses,
   useSearchProducts,
@@ -26,6 +28,7 @@ import {
   type Product,
   type ProductVariant,
 } from "@workspace/api-client-react";
+import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/modal";
@@ -137,12 +140,13 @@ export function PurchasesPage() {
 
 function NewPurchase({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
-  const suppliersQuery = useListSuppliers({ page: 1, pageSize: 200, includeInactive: false });
+  const suppliersQuery = useListSuppliers({ page: 1, pageSize: 100 });
   const suppliers = suppliersQuery.data?.items ?? [];
-  const warehousesQuery = useListWarehouses({ includeInactive: false });
+  const warehousesQuery = useListWarehouses({});
   const warehouses = warehousesQuery.data ?? [];
 
   const [supplierId, setSupplierId] = useState("");
+  const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
   const activeWarehouseId = warehouseId || warehouses[0]?.id || "";
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState("");
@@ -264,6 +268,12 @@ function NewPurchase({ onDone }: { onDone: () => void }) {
       void queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/treasury"] });
+      
+      // Real-time Reports Sync
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/purchases-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/profit-loss"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/inventory-stock"] });
       reset();
       void result;
       onDone();
@@ -279,19 +289,30 @@ function NewPurchase({ onDone }: { onDone: () => void }) {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">المورد</label>
-            <select
-              value={supplierId}
-              onChange={(e) => setSupplierId(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-              data-testid="select-supplier"
-            >
-              <option value="">— اختر المورد —</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                data-testid="select-supplier"
+              >
+                <option value="">— اختر المورد —</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowCreateSupplier(true)}
+                title="إضافة مورد جديد"
+                className="shrink-0 flex items-center justify-center w-10 h-10 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 rounded-xl transition"
+                data-testid="button-add-supplier-inline"
+              >
+                <UserPlus size={18} />
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">المخزن المستلِم</label>
@@ -335,7 +356,7 @@ function NewPurchase({ onDone }: { onDone: () => void }) {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearch(normalizeBarcodeInput(e.target.value))}
               placeholder="بحث عن منتج لإضافته..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
               data-testid="input-purchase-search"
@@ -531,6 +552,16 @@ function NewPurchase({ onDone }: { onDone: () => void }) {
           </button>
         </div>
       </div>
+
+      {showCreateSupplier && (
+        <CreateSupplierModal
+          onClose={() => setShowCreateSupplier(false)}
+          onCreated={(newId) => {
+            setSupplierId(newId);
+            setShowCreateSupplier(false);
+          }}
+        />
+      )}
 
       {pickProduct && (
         <VariantPicker
@@ -783,6 +814,79 @@ function PurchaseDetailModal({ id, onClose }: { id: string; onClose: () => void 
           )}
         </div>
       )}
+    </Modal>
+  );
+}
+
+function CreateSupplierModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (id: string) => void;
+}) {
+  const createMutation = useCreateSupplier();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handle(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!name.trim()) return setError("اسم المورد مطلوب.");
+    if (!phone.trim()) return setError("رقم الهاتف مطلوب.");
+
+    try {
+      const res = await createMutation.mutateAsync({
+        data: {
+          name: name.trim(),
+          phone: phone.trim(),
+          address: null,
+          taxNumber: null,
+          notes: null,
+        },
+      });
+      // Global MutationCache handles lookup cache invalidation
+      onCreated(res.id);
+    } catch (err) {
+      setError(apiErrorMessage(err, "تعذّر إضافة المورد."));
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="مورد جديد">
+      <form onSubmit={handle} className="space-y-4">
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-1.5">الاسم</label>
+          <input
+            autoFocus
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-1.5">رقم الهاتف</label>
+          <input
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition text-left"
+            dir="ltr"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </div>
+        {error && (
+          <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold">
+            {error}
+          </div>
+        )}
+        <button
+          type="submit"
+          disabled={createMutation.isPending}
+          className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl font-bold transition disabled:opacity-60 flex items-center justify-center gap-2"
+        >
+          {createMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : "إضافة"}
+        </button>
+      </form>
     </Modal>
   );
 }

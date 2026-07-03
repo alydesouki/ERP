@@ -1,30 +1,23 @@
-import {
-  boolean,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import crypto from "crypto";
+import { integer, text, sqliteTable, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { storesTable } from "./stores";
 
 // Per-store roles. `permissions` is a JSONB array of permission keys from the
 // shared catalog (@workspace/shared). System roles are seeded on setup and
 // cannot be deleted.
-export const rolesTable = pgTable(
+export const rolesTable = sqliteTable(
   "roles",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     nameAr: text("name_ar"),
-    permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
-    isSystem: boolean("is_system").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    permissions: text("permissions", { mode: 'json' }).$type<string[]>().notNull().default([]),
+    isSystem: integer("is_system", { mode: 'boolean' }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),

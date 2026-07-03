@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { db, usersTable, rolesTable } from "@workspace/db";
 import {
   CreateUserBody,
@@ -84,15 +84,15 @@ router.get("/users", requireAuth, requirePermission("users.view"), async (req, r
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
     const searchCond = or(
-      ilike(usersTable.username, term),
-      ilike(usersTable.fullName, term),
+      like(usersTable.username, term),
+      like(usersTable.fullName, term),
     );
     if (searchCond) conditions.push(searchCond);
   }
   const where = and(...conditions);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(*)` })
     .from(usersTable)
     .where(where);
 

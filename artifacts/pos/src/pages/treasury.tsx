@@ -259,6 +259,7 @@ function SessionModal({
   function invalidateAll() {
     void queryClient.invalidateQueries({ queryKey: ["/api/treasury/sessions"] });
     void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
   }
 
   async function handleOpen() {

@@ -3423,6 +3423,13 @@ components:
                 $ref: "#/components/schemas/ProductVariant"
           required: [variants]
 
+    OpeningStockEntry:
+      type: object
+      required: [warehouseId, quantity]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+
     VariantSeed:
       type: object
       required: [colorId, sizeId]
@@ -3431,6 +3438,10 @@ components:
         sizeId: { type: string, format: uuid }
         sellingPrice: { type: ["number", "null"] }
         costPrice: { type: ["number", "null"] }
+        openingStock:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpeningStockEntry"
 
     ProductInput:
       type: object
@@ -4633,6 +4644,10 @@ components:
         ]
       properties:
         id: { type: string, format: uuid }
+        storeName: { type: ["string", "null"] }
+        storePhone: { type: ["string", "null"] }
+        storeAddress: { type: ["string", "null"] }
+        logoUrl: { type: ["string", "null"] }
         currency: { type: string }
         taxEnabled: { type: boolean }
         taxRate: { type: string }
@@ -4648,6 +4663,7 @@ components:
     UpdateStoreSettingsInput:
       type: object
       properties:
+        logoUrl: { type: ["string", "null"], maxLength: 1000 }
         currency: { type: string, minLength: 1, maxLength: 8 }
         taxEnabled: { type: boolean }
         taxRate: { type: number, minimum: 0, maximum: 100 }

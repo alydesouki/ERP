@@ -1,26 +1,27 @@
-import { boolean, index, numeric, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import crypto from "crypto";
+import { integer, index, text, sqliteTable } from "drizzle-orm/sqlite-core";
 import { storesTable } from "./stores";
 
 // Customers are OPTIONAL in this system — most sales are anonymous walk-in cash
 // sales. A customer account exists mainly to track credit (debt) and history.
 // currentBalance is a cached running balance kept in sync with customer_transactions.
-export const customersTable = pgTable(
+export const customersTable = sqliteTable(
   "customers",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     phone: text("phone").notNull(),
     address: text("address"),
-    creditLimit: numeric("credit_limit", { precision: 14, scale: 2 }).notNull().default("0"),
+    creditLimit: text("credit_limit").notNull().default("0"),
     // Positive balance = customer owes the store (debt).
-    currentBalance: numeric("current_balance", { precision: 14, scale: 2 }).notNull().default("0"),
+    currentBalance: text("current_balance").notNull().default("0"),
     notes: text("notes"),
-    isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    isActive: integer("is_active", { mode: 'boolean' }).notNull().default(true),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
@@ -32,35 +33,35 @@ export const customersTable = pgTable(
 );
 
 // What kind of ledger entry this is. INVOICE/RETURN affect debt; PAYMENT reduces it.
-export const customerTxTypeEnum = pgEnum("customer_tx_type", [
+export const customerTxTypeEnum = [
   "INVOICE",
   "PAYMENT",
   "RETURN",
   "OPENING_BALANCE",
   "ADJUSTMENT",
-]);
+] as const;
 
 // Immutable running-balance ledger for a customer. debit increases what the
 // customer owes; credit decreases it. balanceAfter is the resulting debt.
-export const customerTransactionsTable = pgTable(
+export const customerTransactionsTable = sqliteTable(
   "customer_transactions",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
-    customerId: uuid("customer_id")
+    customerId: text("customer_id")
       .notNull()
       .references(() => customersTable.id, { onDelete: "restrict" }),
-    type: customerTxTypeEnum("type").notNull(),
-    debit: numeric("debit", { precision: 14, scale: 2 }).notNull().default("0"),
-    credit: numeric("credit", { precision: 14, scale: 2 }).notNull().default("0"),
-    balanceAfter: numeric("balance_after", { precision: 14, scale: 2 }).notNull(),
+    type: text("type", { enum: customerTxTypeEnum }).notNull(),
+    debit: text("debit").notNull().default("0"),
+    credit: text("credit").notNull().default("0"),
+    balanceAfter: text("balance_after").notNull(),
     referenceType: text("reference_type"),
-    referenceId: uuid("reference_id"),
+    referenceId: text("reference_id"),
     description: text("description"),
-    createdBy: uuid("created_by"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [
     index("customer_tx_customer_idx").on(table.customerId, table.createdAt),

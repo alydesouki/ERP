@@ -106,7 +106,7 @@ router.get(
     const where = and(...conditions);
 
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(treasuryTransactionsTable)
       .where(where);
 
@@ -173,7 +173,7 @@ router.get(
     const where = and(...conditions);
 
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(treasurySessionsTable)
       .where(where);
 

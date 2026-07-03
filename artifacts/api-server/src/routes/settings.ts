@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { and, asc, eq } from "drizzle-orm";
-import { db, numberSequencesTable, storeSettingsTable } from "@workspace/db";
+import { db, numberSequencesTable, storeSettingsTable, storesTable } from "@workspace/db";
 import { UpdateNumberSequenceBody, UpdateStoreSettingsBody } from "@workspace/api-zod";
 import { writeAuditLog } from "../lib/audit";
 import { requireAuth, requirePermission } from "../middleware/auth";
@@ -23,9 +23,21 @@ async function ensureSettings(storeId: string) {
   return row;
 }
 
-function serializeSettings(row: typeof storeSettingsTable.$inferSelect) {
+async function serializeSettings(
+  storeId: string,
+  row: typeof storeSettingsTable.$inferSelect,
+) {
+  const [store] = await db
+    .select({ name: storesTable.name, phone: storesTable.phone, address: storesTable.address, logoUrl: storesTable.logoUrl })
+    .from(storesTable)
+    .where(eq(storesTable.id, storeId))
+    .limit(1);
   return {
     id: row.id,
+    storeName: store?.name ?? null,
+    storePhone: store?.phone ?? null,
+    storeAddress: store?.address ?? null,
+    logoUrl: store?.logoUrl ?? null,
     currency: row.currency,
     taxEnabled: row.taxEnabled,
     taxRate: row.taxRate,
@@ -41,9 +53,10 @@ function serializeSettings(row: typeof storeSettingsTable.$inferSelect) {
 }
 
 // GET /settings
-router.get("/settings", requireAuth, requirePermission("settings.view"), async (req, res) => {
-  const row = await ensureSettings(req.auth!.storeId);
-  res.json(serializeSettings(row));
+router.get("/settings", requireAuth, async (req, res) => {
+  const storeId = req.auth!.storeId;
+  const row = await ensureSettings(storeId);
+  res.json(await serializeSettings(storeId, row));
 });
 
 // PATCH /settings
@@ -73,17 +86,25 @@ router.patch("/settings", requireAuth, requirePermission("settings.manage"), asy
   if (body.requireSessionForCash !== undefined)
     update.requireSessionForCash = body.requireSessionForCash;
 
-  if (Object.keys(update).length === 0) {
-    const row = await ensureSettings(storeId);
-    res.json(serializeSettings(row));
-    return;
+  // logoUrl is stored on the stores table (tenant root), not store_settings.
+  if ((body as any).logoUrl !== undefined) {
+    await db
+      .update(storesTable)
+      .set({ logoUrl: (body as any).logoUrl })
+      .where(eq(storesTable.id, storeId));
   }
 
-  const [row] = await db
-    .update(storeSettingsTable)
-    .set(update)
-    .where(eq(storeSettingsTable.storeId, storeId))
-    .returning();
+  let row;
+  if (Object.keys(update).length === 0) {
+    row = await ensureSettings(storeId);
+  } else {
+    const [updated] = await db
+      .update(storeSettingsTable)
+      .set(update)
+      .where(eq(storeSettingsTable.storeId, storeId))
+      .returning();
+    row = updated;
+  }
 
   await writeAuditLog({
     storeId,
@@ -91,11 +112,11 @@ router.patch("/settings", requireAuth, requirePermission("settings.manage"), asy
     action: "settings.updated",
     entityType: "store_settings",
     entityId: row.id,
-    newValue: update,
+    newValue: { ...update, logoUrl: (body as any).logoUrl },
     ipAddress: clientIp(req),
   });
 
-  res.json(serializeSettings(row));
+  res.json(await serializeSettings(storeId, row));
 });
 
 // Document-number sequences the store may customise. Kept in sync with the

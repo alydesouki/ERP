@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, gt, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, like, or, sql } from "drizzle-orm";
 import {
   db,
   suppliersTable,
@@ -57,13 +57,13 @@ router.get("/suppliers", requireAuth, requirePermission("suppliers.view"), async
   if (withDebtOnly) conditions.push(gt(suppliersTable.currentBalance, "0"));
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
-    const cond = or(ilike(suppliersTable.name, term), ilike(suppliersTable.phone, term));
+    const cond = or(like(suppliersTable.name, term), like(suppliersTable.phone, term));
     if (cond) conditions.push(cond);
   }
   const where = and(...conditions);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(*)` })
     .from(suppliersTable)
     .where(where);
 
@@ -297,7 +297,7 @@ router.post(
           .select({ id: suppliersTable.id, currentBalance: suppliersTable.currentBalance })
           .from(suppliersTable)
           .where(and(eq(suppliersTable.id, String(req.params["id"])), eq(suppliersTable.storeId, storeId)))
-          .for("update")
+          
           .limit(1);
         if (!supplier) throw new Error("SUPPLIER_NOT_FOUND");
 

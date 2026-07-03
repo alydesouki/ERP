@@ -1,14 +1,16 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, like, inArray, or, sql } from "drizzle-orm";
 import {
   db,
   brandsTable,
   categoriesTable,
   colorsTable,
   inventoryItemsTable,
+  inventoryMovementsTable,
   productsTable,
   productVariantsTable,
   sizesTable,
+  warehousesTable,
 } from "@workspace/db";
 import {
   CreateProductBody,
@@ -41,11 +43,11 @@ function money(n: number | null | undefined): string | undefined {
 
 // Per-product aggregates (variant count + total stock across all warehouses).
 const variantCountSql = sql<number>`(
-  select count(*)::int from ${productVariantsTable} v
+  select count(*) from ${productVariantsTable} v
   where v.product_id = ${productsTable.id} and v.is_active = true
 )`;
 const totalStockSql = sql<number>`(
-  select coalesce(sum(ii.quantity), 0)::int from ${inventoryItemsTable} ii
+  select coalesce(sum(ii.quantity), 0) from ${inventoryItemsTable} ii
   join ${productVariantsTable} v on v.id = ii.variant_id
   where v.product_id = ${productsTable.id}
 )`;
@@ -110,7 +112,7 @@ function toProductDto(r: ProductRow) {
 }
 
 const variantStockSql = sql<number>`(
-  select coalesce(sum(ii.quantity), 0)::int from ${inventoryItemsTable} ii
+  select coalesce(sum(ii.quantity), 0) from ${inventoryItemsTable} ii
   where ii.variant_id = ${productVariantsTable.id}
 )`;
 
@@ -184,13 +186,13 @@ router.get(
     if (brandId) conditions.push(eq(productsTable.brandId, brandId));
     if (search && search.trim()) {
       const term = `%${search.trim()}%`;
-      const cond = or(ilike(productsTable.name, term), ilike(productsTable.nameEn, term));
+      const cond = or(like(productsTable.name, term), like(productsTable.nameEn, term));
       if (cond) conditions.push(cond);
     }
     const where = and(...conditions);
 
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(productsTable)
       .where(where);
 
@@ -234,13 +236,13 @@ router.get(
       .where(
         and(
           eq(productVariantsTable.storeId, storeId),
-          or(ilike(productVariantsTable.sku, term), ilike(productVariantsTable.barcode, term)),
+          or(like(productVariantsTable.sku, term), like(productVariantsTable.barcode, term)),
         ),
       );
 
     const cond = or(
-      ilike(productsTable.name, term),
-      ilike(productsTable.nameEn, term),
+      like(productsTable.name, term),
+      like(productsTable.nameEn, term),
       inArray(productsTable.id, matchingByVariant),
     );
 
@@ -415,19 +417,70 @@ router.post(
           reorderPoint: input.reorderPoint ?? 0,
         })
         .returning();
+
       if (prepared.length > 0) {
-        await tx.insert(productVariantsTable).values(
-          prepared.map((p) => ({
-            productId: created.id,
-            storeId,
-            colorId: p.colorId,
-            sizeId: p.sizeId,
-            sku: p.sku,
-            barcode: p.barcode,
-            sellingPrice: p.sellingPrice,
-            costPrice: p.costPrice,
-          })),
-        );
+        const inserted = await tx
+          .insert(productVariantsTable)
+          .values(
+            prepared.map((p) => ({
+              productId: created.id,
+              storeId,
+              colorId: p.colorId,
+              sizeId: p.sizeId,
+              sku: p.sku,
+              barcode: p.barcode,
+              sellingPrice: p.sellingPrice,
+              costPrice: p.costPrice,
+            })),
+          )
+          .returning({ id: productVariantsTable.id, colorId: productVariantsTable.colorId, sizeId: productVariantsTable.sizeId });
+
+        // Process opening stock for each seed variant that has openingStock entries.
+        for (let i = 0; i < seeds.length; i++) {
+          const seed = seeds[i];
+          const variant = inserted[i];
+          if (!seed || !variant) continue;
+          const stockEntries = (seed as any).openingStock ?? [];
+          for (const entry of stockEntries) {
+            if (!entry.warehouseId || !entry.quantity || entry.quantity <= 0) continue;
+            // Verify warehouse belongs to the store.
+            const [wh] = await tx
+              .select({ id: warehousesTable.id })
+              .from(warehousesTable)
+              .where(and(eq(warehousesTable.id, entry.warehouseId), eq(warehousesTable.storeId, storeId)))
+              .limit(1);
+            if (!wh) continue;
+
+            // Upsert inventory cache.
+            const [item] = await tx
+              .insert(inventoryItemsTable)
+              .values({
+                storeId,
+                variantId: variant.id,
+                warehouseId: entry.warehouseId,
+                quantity: entry.quantity,
+              })
+              .onConflictDoUpdate({
+                target: [inventoryItemsTable.variantId, inventoryItemsTable.warehouseId],
+                set: { quantity: sql`${inventoryItemsTable.quantity} + ${entry.quantity}` },
+              })
+              .returning({ quantity: inventoryItemsTable.quantity });
+
+            // Append immutable movement record.
+            await tx.insert(inventoryMovementsTable).values({
+              storeId,
+              variantId: variant.id,
+              warehouseId: entry.warehouseId,
+              type: "ADJUSTMENT_IN",
+              quantityChange: entry.quantity,
+              balanceAfter: item.quantity,
+              referenceType: "OPENING_STOCK",
+              referenceId: created.id,
+              notes: `مخزون افتتاحي عند إنشاء المنتج`,
+              createdBy: req.auth!.userId,
+            });
+          }
+        }
       }
       return created;
     });

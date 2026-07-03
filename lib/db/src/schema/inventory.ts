@@ -1,4 +1,5 @@
-import { index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import crypto from "crypto";
+import { index, integer, text, sqliteTable, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { productVariantsTable } from "./products";
 import { storesTable } from "./stores";
 import { usersTable } from "./users";
@@ -7,7 +8,7 @@ import { warehousesTable } from "./warehouses";
 // All ways stock can move. IN types add quantity, OUT types subtract. Phase 2
 // uses ADJUSTMENT_* (manual) and STOCK_COUNT_CORRECTION; SALE/PURCHASE/TRANSFER
 // types are reserved for later phases.
-export const movementTypeEnum = pgEnum("movement_type", [
+export const movementTypeEnum = [
   "SALE",
   "SALE_RETURN",
   "PURCHASE",
@@ -17,27 +18,27 @@ export const movementTypeEnum = pgEnum("movement_type", [
   "TRANSFER_OUT",
   "TRANSFER_IN",
   "STOCK_COUNT_CORRECTION",
-]);
+] as const;
 
 // Cached current stock per variant per warehouse. The authoritative history is
 // inventory_movements; this row is kept in sync inside the same transaction as
 // each movement so reads stay fast.
-export const inventoryItemsTable = pgTable(
+export const inventoryItemsTable = sqliteTable(
   "inventory_items",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
-    variantId: uuid("variant_id")
+    variantId: text("variant_id")
       .notNull()
       .references(() => productVariantsTable.id, { onDelete: "restrict" }),
-    warehouseId: uuid("warehouse_id")
+    warehouseId: text("warehouse_id")
       .notNull()
       .references(() => warehousesTable.id, { onDelete: "restrict" }),
     quantity: integer("quantity").notNull().default(0),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
@@ -49,29 +50,29 @@ export const inventoryItemsTable = pgTable(
 );
 
 // Immutable append-only ledger of every stock change. Never updated or deleted.
-export const inventoryMovementsTable = pgTable(
+export const inventoryMovementsTable = sqliteTable(
   "inventory_movements",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
-    variantId: uuid("variant_id")
+    variantId: text("variant_id")
       .notNull()
       .references(() => productVariantsTable.id, { onDelete: "restrict" }),
-    warehouseId: uuid("warehouse_id")
+    warehouseId: text("warehouse_id")
       .notNull()
       .references(() => warehousesTable.id, { onDelete: "restrict" }),
-    type: movementTypeEnum("type").notNull(),
+    type: text("type", { enum: movementTypeEnum }).notNull(),
     // Signed change: positive for IN, negative for OUT.
     quantityChange: integer("quantity_change").notNull(),
     // Resulting on-hand quantity after applying this movement.
     balanceAfter: integer("balance_after").notNull(),
     referenceType: text("reference_type"),
-    referenceId: uuid("reference_id"),
+    referenceId: text("reference_id"),
     notes: text("notes"),
-    createdBy: uuid("created_by").references(() => usersTable.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text("created_by").references(() => usersTable.id, { onDelete: "restrict" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [
     index("movements_variant_warehouse_store_idx").on(table.variantId, table.warehouseId, table.storeId),

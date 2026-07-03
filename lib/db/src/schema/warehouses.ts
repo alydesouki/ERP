@@ -1,23 +1,24 @@
-import { boolean, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import crypto from "crypto";
+import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { storesTable } from "./stores";
 
 // Storage locations. Each store can have multiple warehouses; inventory is
 // tracked per warehouse. Warehouses with stock cannot be deleted (RESTRICT via
 // inventory_items FK) — they are soft-deleted via `isActive`.
-export const warehousesTable = pgTable(
+export const warehousesTable = sqliteTable(
   "warehouses",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     code: text("code"),
     address: text("address"),
-    isDefault: boolean("is_default").notNull().default(false),
-    isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    isDefault: integer("is_default", { mode: 'boolean' }).notNull().default(false),
+    isActive: integer("is_active", { mode: 'boolean' }).notNull().default(true),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),

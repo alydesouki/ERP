@@ -1,14 +1,13 @@
 import { defineConfig } from "drizzle-kit";
 import path from "path";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
+const rawPath = process.env.DATABASE_URL || path.join(process.cwd(), "sqlite.db");
+const dbUrl = rawPath.startsWith("file:") ? rawPath : `file:${rawPath}`;
 
 export default defineConfig({
-  schema: path.join(__dirname, "./src/schema/index.ts"),
-  dialect: "postgresql",
+  schema: "./src/schema/index.ts",
+  dialect: "sqlite",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: dbUrl,
   },
 });

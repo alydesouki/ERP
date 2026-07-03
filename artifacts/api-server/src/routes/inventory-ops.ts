@@ -189,7 +189,7 @@ router.get(
         fromWarehouseName: sql<string | null>`${fromWh.name}`,
         toWarehouseName: sql<string | null>`(select name from warehouses w2 where w2.id = ${warehouseTransfersTable.toWarehouseId})`,
         status: warehouseTransfersTable.status,
-        itemCount: sql<number>`(select count(*)::int from warehouse_transfer_items i where i.transfer_id = ${warehouseTransfersTable.id})`,
+        itemCount: sql<number>`(select count(*) from warehouse_transfer_items i where i.transfer_id = ${warehouseTransfersTable.id})`,
         notes: warehouseTransfersTable.notes,
         createdByName: usersTable.fullName,
         createdAt: warehouseTransfersTable.createdAt,
@@ -359,7 +359,7 @@ router.post(
           .where(
             and(eq(warehouseTransfersTable.id, id), eq(warehouseTransfersTable.storeId, storeId)),
           )
-          .for("update")
+          
           .limit(1);
         if (!transfer) throw new Error("NOT_FOUND");
         if (transfer.status !== "PENDING") throw new Error("BAD_STATE");
@@ -431,7 +431,7 @@ router.post(
           .where(
             and(eq(warehouseTransfersTable.id, id), eq(warehouseTransfersTable.storeId, storeId)),
           )
-          .for("update")
+          
           .limit(1);
         if (!transfer) throw new Error("NOT_FOUND");
         if (transfer.status !== "PENDING") throw new Error("BAD_STATE");
@@ -568,7 +568,7 @@ router.get(
         countNumber: stockCountsTable.countNumber,
         warehouseName: warehousesTable.name,
         status: stockCountsTable.status,
-        itemCount: sql<number>`(select count(*)::int from stock_count_items i where i.count_id = ${stockCountsTable.id})`,
+        itemCount: sql<number>`(select count(*) from stock_count_items i where i.count_id = ${stockCountsTable.id})`,
         notes: stockCountsTable.notes,
         createdByName: usersTable.fullName,
         createdAt: stockCountsTable.createdAt,
@@ -756,7 +756,7 @@ router.post(
           .select()
           .from(stockCountsTable)
           .where(and(eq(stockCountsTable.id, id), eq(stockCountsTable.storeId, storeId)))
-          .for("update")
+          
           .limit(1);
         if (!countRow) throw new Error("NOT_FOUND");
         if (countRow.status !== "OPEN") throw new Error("BAD_STATE");

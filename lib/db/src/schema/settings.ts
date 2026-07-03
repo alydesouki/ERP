@@ -1,28 +1,29 @@
-import { boolean, integer, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import crypto from "crypto";
+import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { storesTable } from "./stores";
 
 // One settings row per store. Controls tax, receipt format, and the business
 // rule toggles the SRS marks "configurable" (negative stock, below-cost discounts).
-export const storeSettingsTable = pgTable(
+export const storeSettingsTable = sqliteTable(
   "store_settings",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     currency: text("currency").notNull().default("EGP"),
-    taxEnabled: boolean("tax_enabled").notNull().default(false),
-    taxRate: numeric("tax_rate", { precision: 5, scale: 2 }).notNull().default("0"),
-    taxInclusive: boolean("tax_inclusive").notNull().default(false),
+    taxEnabled: integer("tax_enabled", { mode: 'boolean' }).notNull().default(false),
+    taxRate: text("tax_rate").notNull().default("0"),
+    taxInclusive: integer("tax_inclusive", { mode: 'boolean' }).notNull().default(false),
     receiptSize: text("receipt_size").notNull().default("80mm"),
     receiptFooter: text("receipt_footer"),
     numeralFormat: text("numeral_format").notNull().default("western"),
-    allowNegativeStock: boolean("allow_negative_stock").notNull().default(false),
-    allowBelowCostDiscount: boolean("allow_below_cost_discount").notNull().default(false),
-    allowNegativeTreasury: boolean("allow_negative_treasury").notNull().default(false),
-    requireSessionForCash: boolean("require_session_for_cash").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    allowNegativeStock: integer("allow_negative_stock", { mode: 'boolean' }).notNull().default(false),
+    allowBelowCostDiscount: integer("allow_below_cost_discount", { mode: 'boolean' }).notNull().default(false),
+    allowNegativeTreasury: integer("allow_negative_treasury", { mode: 'boolean' }).notNull().default(false),
+    requireSessionForCash: integer("require_session_for_cash", { mode: 'boolean' }).notNull().default(true),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
@@ -33,19 +34,19 @@ export const storeSettingsTable = pgTable(
 // Per-store, per-document-kind monotonic counters used to generate human-friendly
 // document numbers (invoices, returns, purchases, transfers, stock counts).
 // Incremented with SELECT ... FOR UPDATE inside the document's transaction.
-export const numberSequencesTable = pgTable(
+export const numberSequencesTable = sqliteTable(
   "number_sequences",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     kind: text("kind").notNull(),
     prefix: text("prefix").notNull().default(""),
     padding: integer("padding").notNull().default(5),
     nextValue: integer("next_value").notNull().default(1),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),

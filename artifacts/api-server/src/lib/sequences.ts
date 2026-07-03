@@ -29,7 +29,7 @@ export async function nextDocumentNumber(tx: Tx, storeId: string, kind: string):
     .select()
     .from(numberSequencesTable)
     .where(and(eq(numberSequencesTable.storeId, storeId), eq(numberSequencesTable.kind, kind)))
-    .for("update")
+    
     .limit(1);
 
   const value = row.nextValue;

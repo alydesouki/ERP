@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, like, inArray, or, sql } from "drizzle-orm";
 import {
   db,
   colorsTable,
@@ -67,16 +67,16 @@ router.get(
     if (search && search.trim()) {
       const term = `%${search.trim()}%`;
       const cond = or(
-        ilike(productsTable.name, term),
-        ilike(productVariantsTable.sku, term),
-        ilike(productVariantsTable.barcode, term),
+        like(productsTable.name, term),
+        like(productVariantsTable.sku, term),
+        like(productVariantsTable.barcode, term),
       );
       if (cond) conditions.push(cond);
     }
     const where = and(...conditions);
 
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(inventoryItemsTable)
       .innerJoin(productVariantsTable, eq(inventoryItemsTable.variantId, productVariantsTable.id))
       .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
@@ -143,7 +143,7 @@ router.get(
     const where = and(...conditions);
 
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(inventoryMovementsTable)
       .where(where);
 

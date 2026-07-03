@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import {
   Search,
   Trash2,
@@ -25,16 +25,21 @@ import {
   useListWarehouses,
   useListCustomers,
   useCreateSale,
+  useCreateCustomer,
   useListSuspendedOrders,
   useCreateSuspendedOrder,
   useDeleteSuspendedOrder,
+  useGetStoreSettings,
   ApiError,
   type Product,
   type ProductVariant,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { Modal } from "@/components/modal";
+import { ThermalReceipt, type ReceiptData } from "@/components/thermal-receipt";
+import { PrintPortal } from "@/components/print-portal";
 
 const CUR = "ج.م";
 
@@ -72,7 +77,7 @@ const PAY_METHODS: { value: Exclude<PayMethod, "CREDIT">; label: string; icon: t
 ];
 
 export function POSPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const queryClient = useQueryClient();
   const canReturn = hasPermission("sales.return");
 
@@ -83,16 +88,54 @@ export function POSPage() {
 
   // ---- search -------------------------------------------------------------
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 150);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const searchQuery = useSearchProducts(
-    { q: search, limit: 12 },
+    { q: debouncedSearch, limit: 12 },
     {
       query: {
-        enabled: search.trim().length > 0,
-        queryKey: getSearchProductsQueryKey({ q: search, limit: 12 }),
+        enabled: debouncedSearch.trim().length > 0,
+        queryKey: getSearchProductsQueryKey({ q: debouncedSearch, limit: 12 }),
       },
     },
   );
   const results = searchQuery.data ?? [];
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (results.length === 1 && results[0].variantCount === 1) {
+        handlePickProduct(results[0]);
+        setSearch("");
+      }
+    }
+  }
+
+  // ---- settings & keyboard shortcuts --------------------------------------
+  const settingsQuery = useGetStoreSettings();
+  const settings = settingsQuery.data;
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        document.getElementById("btn-complete-sale")?.click();
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        document.getElementById("btn-reset-sale")?.click();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   // ---- variant picker -----------------------------------------------------
   const [pickProduct, setPickProduct] = useState<Product | null>(null);
@@ -101,14 +144,15 @@ export function POSPage() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState("");
   const [customerId, setCustomerId] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<Exclude<PayMethod, "CREDIT">>("CASH");
+  type PaymentLine = { method: Exclude<PayMethod, "CREDIT">; amount: string };
+  const [paymentLines, setPaymentLines] = useState<PaymentLine[]>([{ method: "CASH", amount: "" }]);
   const [onCredit, setOnCredit] = useState(false);
-  const [paidInput, setPaidInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const customersQuery = useListCustomers({ page: 1, pageSize: 200, includeInactive: false });
+  const customersQuery = useListCustomers({ page: 1, pageSize: 100 });
   const customers = customersQuery.data?.items ?? [];
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false);
 
   const subtotal = useMemo(() => cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0), [cart]);
   const discountAmount = Math.min(Math.max(Number(discount) || 0, 0), subtotal);
@@ -169,23 +213,55 @@ export function POSPage() {
     setDiscount("");
     setCustomerId("");
     setOnCredit(false);
-    setPaidInput("");
-    setPaymentMethod("CASH");
+    setPaymentLines([{ method: "CASH", amount: "" }]);
     setError(null);
   }
 
   // ---- complete sale ------------------------------------------------------
   const createSale = useCreateSale();
-  const [receipt, setReceipt] = useState<{
-    invoiceNumber: string;
-    total: string;
-    paid: string;
-    change: string;
-  } | null>(null);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
-  const paidNum = onCredit ? 0 : Number(paidInput) || total;
-  const changeDue = paymentMethod === "CASH" && !onCredit ? Math.max(paidNum - total, 0) : 0;
-  const creditPortion = onCredit ? Math.max(total - (Number(paidInput) || 0), 0) : 0;
+  // ---- Auto-print after sale --------------------------------------------------
+  // When receiptData is set, wait one animation frame for the print portal to
+  // render, then trigger window.print() automatically.
+  // The 'afterprint' event fires when the print dialog closes — we use it to
+  // auto-close the receipt modal and reset the POS for the next sale.
+  useEffect(() => {
+    if (!receiptData) return;
+
+    let printed = false;
+
+    function handleAfterPrint() {
+      printed = true;
+      setReceiptData(null);
+      setTimeout(() => searchRef.current?.focus(), 100);
+    }
+
+    window.addEventListener("afterprint", handleAfterPrint);
+
+    // Trigger print after DOM renders (double rAF for safety)
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print();
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener("afterprint", handleAfterPrint);
+      void printed; // suppress lint unused warning
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiptData]);
+  // ---------------------------------------------------------------------------
+
+  const sumPaidInput = paymentLines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+  const isImplicitTotal = !onCredit && paymentLines.length === 1 && paymentLines[0].amount === "";
+  const paidNum = onCredit ? 0 : (isImplicitTotal ? total : sumPaidInput);
+  
+  const hasCash = paymentLines.some(l => l.method === "CASH");
+  const changeDue = hasCash && !onCredit ? Math.max(paidNum - total, 0) : 0;
+  const creditPortion = onCredit ? Math.max(total - sumPaidInput, 0) : 0;
 
   async function completeSale() {
     setError(null);
@@ -204,11 +280,25 @@ export function POSPage() {
 
     const payments: { method: PayMethod; amount: number }[] = [];
     if (onCredit) {
-      const upfront = Number(paidInput) || 0;
-      if (upfront > 0) payments.push({ method: paymentMethod, amount: upfront });
-      payments.push({ method: "CREDIT", amount: Math.max(total - upfront, 0) });
+      paymentLines.forEach(line => {
+        const amt = Number(line.amount) || 0;
+        if (amt > 0) payments.push({ method: line.method, amount: amt });
+      });
+      payments.push({ method: "CREDIT", amount: Math.max(total - sumPaidInput, 0) });
     } else {
-      payments.push({ method: paymentMethod, amount: paymentMethod === "CASH" ? paidNum : total });
+      if (isImplicitTotal) {
+        payments.push({ method: paymentLines[0].method, amount: total });
+      } else {
+        paymentLines.forEach(line => {
+          const amt = Number(line.amount) || 0;
+          if (amt > 0) payments.push({ method: line.method, amount: amt });
+        });
+        
+        if (sumPaidInput < total) {
+          setError(`المبلغ المدفوع (${money(sumPaidInput)}) أقل من الإجمالي (${money(total)})`);
+          return;
+        }
+      }
     }
 
     try {
@@ -225,16 +315,47 @@ export function POSPage() {
           payments,
         },
       });
-      setReceipt({
+      setReceiptData({
+        storeName: settings?.storeName,
+        storePhone: settings?.storePhone,
+        storeAddress: settings?.storeAddress,
+        logoUrl: settings?.logoUrl,
+        receiptFooter: settings?.receiptFooter,
+        receiptSize: settings?.receiptSize,
+        currency: CUR,
+        taxEnabled: settings?.taxEnabled,
+        taxRate: settings?.taxRate,
         invoiceNumber: result.invoiceNumber,
-        total: result.totalAmount,
-        paid: result.amountPaid,
-        change: result.changeDue ?? "0",
+        customerName: customers.find((c) => c.id === customerId)?.name,
+        cashierName: user?.fullName,
+        createdAt: new Date().toISOString(),
+        items: cart.map((l) => ({
+          productName: l.productName,
+          colorName: l.colorName,
+          sizeName: l.sizeName,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          lineTotal: l.unitPrice * l.quantity,
+        })),
+        subtotal,
+        discountAmount,
+        totalAmount: result.totalAmount,
+        payments: result.payments.map(p => ({ method: p.method, amount: p.amount })),
+        amountPaid: result.amountPaid,
+        changeDue: result.changeDue ?? "0",
       });
       resetCart();
       void queryClient.invalidateQueries({ queryKey: ["/api/sales/invoices"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      
+      // Real-time Reports Sync
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/sales-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/profit-loss"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/inventory-stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/top-products"] });
+      
       searchRef.current?.focus();
     } catch (err) {
       setError(apiErrorMessage(err, "تعذّر إتمام البيع"));
@@ -297,9 +418,10 @@ export function POSPage() {
             <input
               ref={searchRef}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearch(normalizeBarcodeInput(e.target.value))}
+              onKeyDown={handleSearchKeyDown}
               type="text"
-              placeholder="بحث عن منتج بالاسم أو الكود أو الباركود..."
+              placeholder="بحث عن منتج بالاسم أو الكود أو الباركود... [F2]"
               className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl py-3 pr-12 pl-4 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
               data-testid="input-pos-search"
             />
@@ -431,47 +553,103 @@ export function POSPage() {
               الطلبات المعلّقة ({suspended.length})
             </button>
           </div>
-          <select
-            value={customerId}
-            onChange={(e) => {
-              setCustomerId(e.target.value);
-              if (!e.target.value) setOnCredit(false);
-            }}
-            className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-            data-testid="select-customer"
-          >
-            <option value="">عميل نقدي (افتراضي)</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} — {c.phone}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select
+              value={customerId}
+              onChange={(e) => {
+                setCustomerId(e.target.value);
+                if (!e.target.value) setOnCredit(false);
+              }}
+              className="flex-1 bg-white border border-slate-200 rounded-xl py-2.5 px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+              data-testid="select-customer"
+            >
+              <option value="">عميل نقدي (افتراضي)</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} — {c.phone}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowCreateCustomer(true)}
+              title="إضافة عميل جديد"
+              className="shrink-0 flex items-center justify-center w-10 h-10 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 rounded-xl transition"
+              data-testid="button-add-customer-inline"
+            >
+              <UserPlus size={18} />
+            </button>
+          </div>
         </div>
 
         {/* payment methods */}
         <div className="p-4 border-b border-slate-100 flex-1 overflow-y-auto">
-          <h3 className="font-bold text-slate-800 mb-3 text-sm">طريقة الدفع</h3>
-          <div className="grid grid-cols-4 gap-2">
-            {PAY_METHODS.map((m) => {
-              const Icon = m.icon;
-              const active = paymentMethod === m.value;
-              return (
-                <button
-                  key={m.value}
-                  onClick={() => setPaymentMethod(m.value)}
-                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1.5 transition ${
-                    active
-                      ? "border-amber-500 bg-amber-50 text-amber-700"
-                      : "border-slate-100 hover:border-slate-200 text-slate-500"
-                  }`}
-                  data-testid={`button-method-${m.value}`}
-                >
-                  <Icon size={22} className={active ? "text-amber-600" : "text-slate-400"} />
-                  <span className="font-bold text-xs">{m.label}</span>
-                </button>
-              );
-            })}
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-slate-800 text-sm">طرق الدفع</h3>
+            <button
+              onClick={() => setPaymentLines(prev => [...prev, { method: "CASH", amount: "" }])}
+              className="text-amber-600 hover:bg-amber-50 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+            >
+              <Plus size={14} /> إضافة دفعة
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            {paymentLines.map((line, index) => (
+              <div key={index} className="p-3 bg-slate-50 border border-slate-200 rounded-xl relative">
+                {paymentLines.length > 1 && (
+                  <button
+                    onClick={() => setPaymentLines(prev => prev.filter((_, i) => i !== index))}
+                    className="absolute top-2 left-2 text-slate-400 hover:text-red-500 bg-white rounded-full p-1 shadow-sm transition"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+                
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {PAY_METHODS.map((m) => {
+                    const Icon = m.icon;
+                    const active = line.method === m.value;
+                    return (
+                      <button
+                        key={m.value}
+                        onClick={() => {
+                          const newLines = [...paymentLines];
+                          newLines[index].method = m.value;
+                          setPaymentLines(newLines);
+                        }}
+                        className={`p-2 rounded-lg border-2 flex flex-col items-center gap-1 transition ${
+                          active
+                            ? "border-amber-500 bg-amber-50 text-amber-700"
+                            : "border-slate-100 bg-white hover:border-slate-200 text-slate-500"
+                        }`}
+                      >
+                        <Icon size={18} className={active ? "text-amber-600" : "text-slate-400"} />
+                        <span className="font-bold text-[10px]">{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <div className="relative">
+                  <input
+                    value={line.amount}
+                    onChange={(e) => {
+                      const newLines = [...paymentLines];
+                      newLines[index].amount = e.target.value;
+                      setPaymentLines(newLines);
+                    }}
+                    inputMode="decimal"
+                    placeholder={onCredit ? "0.00" : (isImplicitTotal ? total.toFixed(2) : "0.00")}
+                    className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg py-2.5 px-3 focus:outline-none focus:border-amber-500 font-bold text-lg"
+                    dir="ltr"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                    {CUR}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
 
           {customerId && (
@@ -490,23 +668,6 @@ export function POSPage() {
           )}
 
           <div className="mt-4">
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              {onCredit ? "المبلغ المدفوع مقدماً" : "المبلغ المدفوع"}
-            </label>
-            <div className="relative">
-              <input
-                value={paidInput}
-                onChange={(e) => setPaidInput(e.target.value)}
-                inputMode="decimal"
-                placeholder={onCredit ? "0.00" : total.toFixed(2)}
-                className="w-full bg-slate-50 border-2 border-slate-200 text-slate-800 rounded-xl py-3 px-4 focus:outline-none focus:border-amber-500 font-black text-xl"
-                dir="ltr"
-                data-testid="input-paid"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
-                {CUR}
-              </span>
-            </div>
             {changeDue > 0 && (
               <p className="mt-2 text-sm font-bold text-green-600" data-testid="text-change">
                 الباقي للعميل: {money(changeDue)} {CUR}
@@ -564,6 +725,7 @@ export function POSPage() {
 
           <div className="grid grid-cols-4 gap-2">
             <button
+              id="btn-complete-sale"
               onClick={completeSale}
               disabled={createSale.isPending || cart.length === 0}
               className="col-span-2 bg-green-500 hover:bg-green-400 disabled:opacity-50 text-slate-900 rounded-xl py-3.5 font-black flex items-center justify-center gap-2 transition active:scale-95"
@@ -574,7 +736,7 @@ export function POSPage() {
               ) : (
                 <CheckCircle2 size={20} />
               )}
-              إتمام البيع
+              إتمام البيع [F4]
             </button>
             <button
               onClick={suspendOrder}
@@ -586,13 +748,14 @@ export function POSPage() {
               <span className="text-xs">تعليق</span>
             </button>
             <button
+              id="btn-reset-sale"
               onClick={resetCart}
               disabled={cart.length === 0}
               className="bg-red-500/10 hover:bg-red-500/20 disabled:opacity-40 text-red-400 rounded-xl py-3.5 font-bold flex flex-col items-center justify-center gap-0.5 transition active:scale-95"
               data-testid="button-cancel"
             >
               <XCircle size={18} />
-              <span className="text-xs">إلغاء</span>
+              <span className="text-xs">إلغاء [F8]</span>
             </button>
           </div>
         </div>
@@ -657,46 +820,32 @@ export function POSPage() {
         )}
       </Modal>
 
-      {/* receipt */}
-      <Modal open={!!receipt} onClose={() => setReceipt(null)} title="تمت العملية بنجاح" maxWidth="max-w-sm">
-        {receipt && (
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
-              <CheckCircle2 size={36} />
+      {/* receipt — shown briefly while auto-print dialog opens */}
+      <Modal open={!!receiptData} onClose={() => setReceiptData(null)} title="تمت العملية بنجاح" maxWidth="max-w-md">
+        {receiptData && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-100 text-blue-700 rounded-xl px-4 py-3 text-sm font-bold text-center flex items-center justify-center gap-2">
+              <Printer size={16} className="animate-pulse" />
+              جارٍ إرسال الفاتورة للطابعة الحرارية...
             </div>
-            <div>
-              <p className="text-slate-500 text-sm">رقم الفاتورة</p>
-              <p className="font-black text-xl text-slate-800" data-testid="text-receipt-number">
-                {receipt.invoiceNumber}
-              </p>
+            <div className="bg-slate-50 p-4 rounded-xl flex justify-center max-h-[50vh] overflow-y-auto">
+              <ThermalReceipt data={receiptData} />
             </div>
-            <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">الإجمالي</span>
-                <span className="font-bold">{money(receipt.total)} {CUR}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">المدفوع</span>
-                <span className="font-bold">{money(receipt.paid)} {CUR}</span>
-              </div>
-              {Number(receipt.change) > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>الباقي</span>
-                  <span className="font-bold">{money(receipt.change)} {CUR}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2">
+            {/* hidden print portal */}
+            <PrintPortal>
+              <ThermalReceipt data={receiptData} forPrint />
+            </PrintPortal>
+            <div className="flex gap-2 pt-2">
               <button
                 onClick={() => window.print()}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl py-2.5 font-bold flex items-center justify-center gap-2"
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl py-3 font-bold flex items-center justify-center gap-2"
                 data-testid="button-print"
               >
-                <Printer size={18} /> طباعة
+                <Printer size={18} /> إعادة الطباعة
               </button>
               <button
-                onClick={() => setReceipt(null)}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl py-2.5 font-bold"
+                onClick={() => setReceiptData(null)}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl py-3 font-bold"
                 data-testid="button-new-sale"
               >
                 بيع جديد
@@ -705,6 +854,17 @@ export function POSPage() {
           </div>
         )}
       </Modal>
+
+      {/* inline customer creation modal */}
+      {showCreateCustomer && (
+        <CreateCustomerInlineModal
+          onClose={() => setShowCreateCustomer(false)}
+          onCreated={(newId) => {
+            setCustomerId(newId);
+            setShowCreateCustomer(false);
+          }}
+        />
+      )}
 
       {!canReturn && null}
     </div>
@@ -722,6 +882,19 @@ function VariantPickerModal({
 }) {
   const detailQuery = useGetProduct(product.id);
   const variants = detailQuery.data?.variants ?? [];
+
+  useEffect(() => {
+    if (detailQuery.isSuccess && variants.length === 1) {
+      const v = variants[0];
+      if ((v.totalStock ?? 0) > 0) {
+        onPick(v);
+      }
+    }
+  }, [detailQuery.isSuccess, variants, onPick]);
+
+  if (detailQuery.isSuccess && variants.length === 1 && (variants[0].totalStock ?? 0) > 0) {
+    return null; // auto-picking
+  }
 
   return (
     <Modal open onClose={onClose} title={product.name} maxWidth="max-w-2xl">
@@ -762,6 +935,90 @@ function VariantPickerModal({
           })}
         </div>
       )}
+    </Modal>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline Customer Creation Modal (for POS)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CreateCustomerInlineModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (id: string) => void;
+}) {
+  const createCustomer = useCreateCustomer();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handle(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!name.trim()) return setError("اسم العميل مطلوب.");
+    if (!phone.trim()) return setError("رقم الهاتف مطلوب.");
+    try {
+      const res = await createCustomer.mutateAsync({
+        data: {
+          name: name.trim(),
+          phone: phone.trim(),
+          address: null,
+          notes: null,
+        },
+      });
+      onCreated(res.id);
+    } catch (err) {
+      setError(apiErrorMessage(err, "تعذّر إضافة العميل."));
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="عميل جديد" maxWidth="max-w-sm">
+      <form onSubmit={handle} className="space-y-4" dir="rtl">
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-1.5">الاسم</label>
+          <input
+            autoFocus
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            data-testid="input-new-customer-name"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-1.5">رقم الهاتف</label>
+          <input
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition text-left"
+            dir="ltr"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            data-testid="input-new-customer-phone"
+          />
+        </div>
+        {error && (
+          <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold">{error}</div>
+        )}
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
+          >
+            إلغاء
+          </button>
+          <button
+            type="submit"
+            disabled={createCustomer.isPending}
+            className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl font-bold transition disabled:opacity-60 flex items-center justify-center gap-2"
+            data-testid="button-save-new-customer"
+          >
+            {createCustomer.isPending ? <Loader2 size={18} className="animate-spin" /> : "إضافة"}
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }

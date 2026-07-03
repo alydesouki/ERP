@@ -32,7 +32,7 @@ import { ensureStoreFinancials, TREASURY_TYPE_TO_ACCOUNT_CODE } from "../lib/see
 import { postTreasuryTransaction } from "../lib/treasury";
 import { postJournalEntry } from "../lib/accounting";
 import { money, toNum } from "../lib/money";
-import { requireAuth, requirePermission } from "../middleware/auth";
+import { requireAuth, requirePermission, requireAnyPermission } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -257,7 +257,7 @@ router.get("/finance/expenses", requireAuth, requirePermission("finance.view"), 
 router.post(
   "/finance/expenses",
   requireAuth,
-  requirePermission("finance.manage"),
+  requireAnyPermission(["finance.manage", "expenses.create"]),
   async (req, res) => {
     const parsed = CreateExpenseBody.safeParse(req.body);
     if (!parsed.success) {
@@ -589,7 +589,7 @@ router.post(
           .select({ id: employeesTable.id, advanceBalance: employeesTable.advanceBalance })
           .from(employeesTable)
           .where(and(eq(employeesTable.id, employeeId), eq(employeesTable.storeId, storeId)))
-          .for("update")
+          
           .limit(1);
         if (!employee) throw new Error("EMPLOYEE_NOT_FOUND");
 
@@ -908,7 +908,7 @@ router.post(
           })
           .from(salaryRecordsTable)
           .where(and(eq(salaryRecordsTable.id, id), eq(salaryRecordsTable.storeId, storeId)))
-          .for("update")
+          
           .limit(1);
         if (!rec) throw new Error("SALARY_NOT_FOUND");
         if (rec.status === "PAID") throw new Error("ALREADY_PAID");

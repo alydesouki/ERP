@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, gt, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, like, or, sql } from "drizzle-orm";
 import { db, customersTable, customerTransactionsTable, treasuryAccountsTable } from "@workspace/db";
 import {
   ListCustomersQueryParams,
@@ -51,13 +51,13 @@ router.get("/customers", requireAuth, requirePermission("customers.view"), async
   if (withDebtOnly) conditions.push(gt(customersTable.currentBalance, "0"));
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
-    const cond = or(ilike(customersTable.name, term), ilike(customersTable.phone, term));
+    const cond = or(like(customersTable.name, term), like(customersTable.phone, term));
     if (cond) conditions.push(cond);
   }
   const where = and(...conditions);
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(*)` })
     .from(customersTable)
     .where(where);
 
@@ -284,7 +284,7 @@ router.post(
           .select({ id: customersTable.id, currentBalance: customersTable.currentBalance })
           .from(customersTable)
           .where(and(eq(customersTable.id, String(req.params["id"])), eq(customersTable.storeId, storeId)))
-          .for("update")
+          
           .limit(1);
         if (!customer) throw new Error("CUSTOMER_NOT_FOUND");
 

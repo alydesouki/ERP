@@ -1,4 +1,5 @@
-import { index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import crypto from "crypto";
+import { index, integer, text, sqliteTable, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { customersTable } from "./customers";
 import { productVariantsTable } from "./products";
 import { storesTable } from "./stores";
@@ -7,53 +8,53 @@ import { usersTable } from "./users";
 import { warehousesTable } from "./warehouses";
 
 // CASH = fully paid at sale; CREDIT = (partly) on the customer's account.
-export const saleTypeEnum = pgEnum("sale_type", ["CASH", "CREDIT"]);
-export const salePaymentStatusEnum = pgEnum("sale_payment_status", ["PAID", "PARTIAL", "UNPAID"]);
-export const saleReturnStatusEnum = pgEnum("sale_return_status", [
+export const saleTypeEnum = ["CASH", "CREDIT"] as const;
+export const salePaymentStatusEnum = ["PAID", "PARTIAL", "UNPAID"] as const;
+export const saleReturnStatusEnum = [
   "NONE",
   "PARTIAL",
   "FULL",
-]);
+] as const;
 // How each payment line was tendered. CREDIT means added to customer balance.
-export const paymentMethodEnum = pgEnum("payment_method", [
+export const paymentMethodEnum = [
   "CASH",
   "CARD",
   "INSTAPAY",
   "WALLET",
   "CREDIT",
-]);
+] as const;
 
 // Sales invoice header. invoiceNumber is a per-store sequence; invoiceBarcode is
 // printed on the receipt so returns can be located by scanning.
-export const invoicesTable = pgTable(
+export const invoicesTable = sqliteTable(
   "invoices",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     invoiceNumber: text("invoice_number").notNull(),
     invoiceBarcode: text("invoice_barcode").notNull(),
-    customerId: uuid("customer_id").references(() => customersTable.id, { onDelete: "restrict" }),
-    warehouseId: uuid("warehouse_id")
+    customerId: text("customer_id").references(() => customersTable.id, { onDelete: "restrict" }),
+    warehouseId: text("warehouse_id")
       .notNull()
       .references(() => warehousesTable.id, { onDelete: "restrict" }),
-    saleType: saleTypeEnum("sale_type").notNull().default("CASH"),
-    subtotal: numeric("subtotal", { precision: 14, scale: 2 }).notNull().default("0"),
-    discountAmount: numeric("discount_amount", { precision: 14, scale: 2 }).notNull().default("0"),
-    taxAmount: numeric("tax_amount", { precision: 14, scale: 2 }).notNull().default("0"),
-    totalAmount: numeric("total_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+    saleType: text("sale_type", { enum: saleTypeEnum }).notNull().default("CASH"),
+    subtotal: text("subtotal").notNull().default("0"),
+    discountAmount: text("discount_amount").notNull().default("0"),
+    taxAmount: text("tax_amount").notNull().default("0"),
+    totalAmount: text("total_amount").notNull().default("0"),
     // Total cost of goods sold for this invoice (sum of line costs), for profit.
-    totalCost: numeric("total_cost", { precision: 14, scale: 2 }).notNull().default("0"),
-    amountPaid: numeric("amount_paid", { precision: 14, scale: 2 }).notNull().default("0"),
-    changeDue: numeric("change_due", { precision: 14, scale: 2 }).notNull().default("0"),
-    paymentStatus: salePaymentStatusEnum("payment_status").notNull().default("PAID"),
-    returnStatus: saleReturnStatusEnum("return_status").notNull().default("NONE"),
+    totalCost: text("total_cost").notNull().default("0"),
+    amountPaid: text("amount_paid").notNull().default("0"),
+    changeDue: text("change_due").notNull().default("0"),
+    paymentStatus: text("payment_status", { enum: salePaymentStatusEnum }).notNull().default("PAID"),
+    returnStatus: text("return_status", { enum: saleReturnStatusEnum }).notNull().default("NONE"),
     notes: text("notes"),
-    createdBy: uuid("created_by")
+    createdBy: text("created_by")
       .notNull()
       .references(() => usersTable.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("invoices_store_number_unique").on(table.storeId, table.invoiceNumber),
@@ -65,26 +66,26 @@ export const invoicesTable = pgTable(
 );
 
 // One cart line. unitPrice/unitCost captured at sale time (history snapshot).
-export const invoiceItemsTable = pgTable(
+export const invoiceItemsTable = sqliteTable(
   "invoice_items",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
-    invoiceId: uuid("invoice_id")
+    invoiceId: text("invoice_id")
       .notNull()
       .references(() => invoicesTable.id, { onDelete: "cascade" }),
-    variantId: uuid("variant_id")
+    variantId: text("variant_id")
       .notNull()
       .references(() => productVariantsTable.id, { onDelete: "restrict" }),
     quantity: integer("quantity").notNull(),
-    unitPrice: numeric("unit_price", { precision: 14, scale: 2 }).notNull(),
-    unitCost: numeric("unit_cost", { precision: 14, scale: 2 }).notNull().default("0"),
-    discountAmount: numeric("discount_amount", { precision: 14, scale: 2 }).notNull().default("0"),
-    lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
+    unitPrice: text("unit_price").notNull(),
+    unitCost: text("unit_cost").notNull().default("0"),
+    discountAmount: text("discount_amount").notNull().default("0"),
+    lineTotal: text("line_total").notNull(),
     returnedQuantity: integer("returned_quantity").notNull().default(0),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [
     index("invoice_items_invoice_idx").on(table.invoiceId),
@@ -93,52 +94,52 @@ export const invoiceItemsTable = pgTable(
 );
 
 // A single payment tender against an invoice. Multiple per invoice allowed.
-export const invoicePaymentsTable = pgTable(
+export const invoicePaymentsTable = sqliteTable(
   "invoice_payments",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
-    invoiceId: uuid("invoice_id")
+    invoiceId: text("invoice_id")
       .notNull()
       .references(() => invoicesTable.id, { onDelete: "cascade" }),
-    method: paymentMethodEnum("method").notNull(),
-    treasuryAccountId: uuid("treasury_account_id").references(() => treasuryAccountsTable.id, {
+    method: text("method", { enum: paymentMethodEnum }).notNull(),
+    treasuryAccountId: text("treasury_account_id").references(() => treasuryAccountsTable.id, {
       onDelete: "restrict",
     }),
-    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    amount: text("amount").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [index("invoice_payments_invoice_idx").on(table.invoiceId)],
 );
 
 // Sales return header, linked to the original invoice.
-export const salesReturnsTable = pgTable(
+export const salesReturnsTable = sqliteTable(
   "sales_returns",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     returnNumber: text("return_number").notNull(),
-    invoiceId: uuid("invoice_id")
+    invoiceId: text("invoice_id")
       .notNull()
       .references(() => invoicesTable.id, { onDelete: "restrict" }),
-    warehouseId: uuid("warehouse_id")
+    warehouseId: text("warehouse_id")
       .notNull()
       .references(() => warehousesTable.id, { onDelete: "restrict" }),
-    totalAmount: numeric("total_amount", { precision: 14, scale: 2 }).notNull().default("0"),
-    totalCost: numeric("total_cost", { precision: 14, scale: 2 }).notNull().default("0"),
-    refundMethod: paymentMethodEnum("refund_method").notNull().default("CASH"),
-    treasuryAccountId: uuid("treasury_account_id").references(() => treasuryAccountsTable.id, {
+    totalAmount: text("total_amount").notNull().default("0"),
+    totalCost: text("total_cost").notNull().default("0"),
+    refundMethod: text("refund_method", { enum: paymentMethodEnum }).notNull().default("CASH"),
+    treasuryAccountId: text("treasury_account_id").references(() => treasuryAccountsTable.id, {
       onDelete: "restrict",
     }),
     reason: text("reason"),
-    createdBy: uuid("created_by")
+    createdBy: text("created_by")
       .notNull()
       .references(() => usersTable.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("sales_returns_store_number_unique").on(table.storeId, table.returnNumber),
@@ -147,49 +148,49 @@ export const salesReturnsTable = pgTable(
   ],
 );
 
-export const salesReturnItemsTable = pgTable(
+export const salesReturnItemsTable = sqliteTable(
   "sales_return_items",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
-    returnId: uuid("return_id")
+    returnId: text("return_id")
       .notNull()
       .references(() => salesReturnsTable.id, { onDelete: "cascade" }),
-    invoiceItemId: uuid("invoice_item_id")
+    invoiceItemId: text("invoice_item_id")
       .notNull()
       .references(() => invoiceItemsTable.id, { onDelete: "restrict" }),
-    variantId: uuid("variant_id")
+    variantId: text("variant_id")
       .notNull()
       .references(() => productVariantsTable.id, { onDelete: "restrict" }),
     quantity: integer("quantity").notNull(),
-    unitPrice: numeric("unit_price", { precision: 14, scale: 2 }).notNull(),
-    unitCost: numeric("unit_cost", { precision: 14, scale: 2 }).notNull().default("0"),
-    lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    unitPrice: text("unit_price").notNull(),
+    unitCost: text("unit_cost").notNull().default("0"),
+    lineTotal: text("line_total").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [index("sales_return_items_return_idx").on(table.returnId)],
 );
 
 // A parked cart saved as JSON. Store-scoped (any cashier can resume). Does not
 // touch inventory or finances until completed into a real invoice.
-export const suspendedOrdersTable = pgTable(
+export const suspendedOrdersTable = sqliteTable(
   "suspended_orders",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    storeId: uuid("store_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
       .notNull()
       .references(() => storesTable.id, { onDelete: "restrict" }),
     label: text("label"),
-    customerId: uuid("customer_id").references(() => customersTable.id, { onDelete: "restrict" }),
-    cart: jsonb("cart").notNull(),
+    customerId: text("customer_id").references(() => customersTable.id, { onDelete: "restrict" }),
+    cart: text("cart", { mode: 'json' }).notNull(),
     itemCount: integer("item_count").notNull().default(0),
-    totalAmount: numeric("total_amount", { precision: 14, scale: 2 }).notNull().default("0"),
-    createdBy: uuid("created_by")
+    totalAmount: text("total_amount").notNull().default("0"),
+    createdBy: text("created_by")
       .notNull()
       .references(() => usersTable.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [index("suspended_orders_store_idx").on(table.storeId, table.createdAt)],
 );

@@ -17,6 +17,7 @@ import {
   ApiError,
   type InvoiceDetail,
 } from "@workspace/api-client-react";
+import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/modal";
@@ -258,6 +259,12 @@ function CreateReturnModal({ onClose }: { onClose: () => void }) {
       void queryClient.invalidateQueries({ queryKey: ["/api/sales/returns"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/sales/invoices"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      
+      // Real-time Reports Sync
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/sales-summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/profit-loss"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/inventory-stock"] });
       onClose();
     } catch (err) {
       setError(apiErrorMessage(err, "تعذّر إنشاء المرتجع"));
@@ -276,7 +283,7 @@ function CreateReturnModal({ onClose }: { onClose: () => void }) {
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 value={lookupTerm}
-                onChange={(e) => setLookupTerm(e.target.value)}
+                onChange={(e) => setLookupTerm(normalizeBarcodeInput(e.target.value))}
                 onKeyDown={(e) => e.key === "Enter" && setSubmittedTerm(lookupTerm)}
                 placeholder="INV-00001 ..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"

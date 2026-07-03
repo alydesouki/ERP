@@ -23,6 +23,7 @@ import {
   type ProductVariant,
   type AdjustmentLineType,
 } from "@workspace/api-client-react";
+import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
@@ -98,7 +99,7 @@ export function StockPage() {
             />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearch(normalizeBarcodeInput(e.target.value))}
               onKeyDown={(e) => e.key === "Enter" && applySearch()}
               placeholder="بحث بالاسم أو رمز الصنف أو الباركود..."
               className={inputClass}

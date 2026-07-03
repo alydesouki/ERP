@@ -72,16 +72,7 @@ export const DEFAULT_ROLES: DefaultRoleDef[] = [
     name: "Cashier",
     nameAr: "كاشير",
     isSystem: true,
-    permissions: [
-      "dashboard.view",
-      "dashboard.view_sales",
-      "sales.create",
-      "sales.view_own",
-      "customers.view",
-      "customers.create",
-      "treasury.session",
-      "reports.sales",
-    ],
+    permissions: ["expenses.create"],
   },
   {
     key: "inventory_staff",
