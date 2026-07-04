@@ -157,7 +157,7 @@ export class AnalyticsService {
   static async getDailySales(storeId: string, fromDate: Date) {
     // SQLite: strftime('%Y-%m-%d', datetime(created_at / 1000, 'unixepoch'))
     const dayExpr = sql<string>`strftime('%Y-%m-%d', datetime(${invoicesTable.createdAt} / 1000, 'unixepoch'))`;
-    return await db
+    const sales = await db
       .select({
         label: dayExpr,
         value: sql<number>`CAST(coalesce(sum(${invoicesTable.totalAmount}), 0) AS REAL)`,
@@ -166,11 +166,31 @@ export class AnalyticsService {
       .where(and(eq(invoicesTable.storeId, storeId), gte(invoicesTable.createdAt, fromDate)))
       .groupBy(dayExpr)
       .orderBy(dayExpr);
+
+    const retDayExpr = sql<string>`strftime('%Y-%m-%d', datetime(${salesReturnsTable.createdAt} / 1000, 'unixepoch'))`;
+    const returns = await db
+      .select({
+        label: retDayExpr,
+        value: sql<number>`CAST(coalesce(sum(${salesReturnsTable.totalAmount}), 0) AS REAL)`,
+      })
+      .from(salesReturnsTable)
+      .where(and(eq(salesReturnsTable.storeId, storeId), gte(salesReturnsTable.createdAt, fromDate)))
+      .groupBy(retDayExpr);
+
+    const map = new Map(sales.map(s => [s.label, s.value]));
+    for (const r of returns) {
+      const current = map.get(r.label) ?? 0;
+      map.set(r.label, Math.max(0, current - r.value));
+    }
+    
+    return Array.from(map.entries())
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }
 
   static async getMonthlyRevenue(storeId: string, fromDate: Date) {
     const monthExpr = sql<string>`strftime('%Y-%m', datetime(${invoicesTable.createdAt} / 1000, 'unixepoch'))`;
-    return await db
+    const sales = await db
       .select({
         label: monthExpr,
         value: sql<number>`CAST(coalesce(sum(${invoicesTable.totalAmount}), 0) AS REAL)`,
@@ -179,6 +199,26 @@ export class AnalyticsService {
       .where(and(eq(invoicesTable.storeId, storeId), gte(invoicesTable.createdAt, fromDate)))
       .groupBy(monthExpr)
       .orderBy(monthExpr);
+
+    const retMonthExpr = sql<string>`strftime('%Y-%m', datetime(${salesReturnsTable.createdAt} / 1000, 'unixepoch'))`;
+    const returns = await db
+      .select({
+        label: retMonthExpr,
+        value: sql<number>`CAST(coalesce(sum(${salesReturnsTable.totalAmount}), 0) AS REAL)`,
+      })
+      .from(salesReturnsTable)
+      .where(and(eq(salesReturnsTable.storeId, storeId), gte(salesReturnsTable.createdAt, fromDate)))
+      .groupBy(retMonthExpr);
+
+    const map = new Map(sales.map(s => [s.label, s.value]));
+    for (const r of returns) {
+      const current = map.get(r.label) ?? 0;
+      map.set(r.label, Math.max(0, current - r.value));
+    }
+    
+    return Array.from(map.entries())
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }
 
   static async getCashFlow(storeId: string, fromDate: Date) {

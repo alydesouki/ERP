@@ -33,6 +33,7 @@ router.get(
     const today = startOfToday();
 
     const salesAgg = await AnalyticsService.getSalesKPIs(storeId, today);
+    const returnAgg = await AnalyticsService.getSalesReturnsKPIs(storeId, today);
     const purchAgg = await AnalyticsService.getPurchasesKPIs(storeId, today);
     const expAgg = await AnalyticsService.getExpensesKPIs(storeId, today);
     const treasuryBalance = await AnalyticsService.getTreasuryBalance(storeId);
@@ -53,9 +54,13 @@ router.get(
       .groupBy(inventoryItemsTable.variantId, productsTable.reorderPoint)
       .having(sql`sum(${inventoryItemsTable.quantity}) <= ${productsTable.reorderPoint}`);
 
+    const netSales = (salesAgg.revenue ?? 0) - (returnAgg.total ?? 0);
+    const cogs = (salesAgg.cost ?? 0) - (returnAgg.cost ?? 0);
+    const todayProfit = netSales - cogs;
+
     res.json({
-      todaySales: salesAgg.revenue,
-      todayProfit: salesAgg.revenue - salesAgg.cost,
+      todaySales: netSales,
+      todayProfit: todayProfit,
       todayPurchases: purchAgg.total,
       todayExpenses: expAgg.total,
       treasuryBalance: treasuryBalance,

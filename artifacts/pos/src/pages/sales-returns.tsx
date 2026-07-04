@@ -265,6 +265,8 @@ function CreateReturnModal({ onClose }: { onClose: () => void }) {
       void queryClient.invalidateQueries({ queryKey: ["/api/reports/profit-loss"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/reports/inventory-stock"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/dashboard/kpis"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/dashboard/charts"] });
       onClose();
     } catch (err) {
       setError(apiErrorMessage(err, "تعذّر إنشاء المرتجع"));
