@@ -233,20 +233,38 @@ function PrintableLabel({
   variant,
   dims,
   currency,
-  svgRef,
 }: {
   productName: string;
   storeName?: string | null;
   variant: BarcodeLabelVariant;
   dims: LabelDims;
   currency: string;
-  svgRef: (el: SVGSVGElement | null) => void;
 }) {
   const price = variant.sellingPrice
     ? `${Number(variant.sellingPrice).toFixed(2)} ${currency}`
     : null;
   const isSmall = dims.wMm <= 30;
   const isTiny  = dims.wMm <= 20;
+
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    try {
+      const barcodeValue = variant.barcode || "000000";
+      const isEAN13 = /^\d{13}$/.test(barcodeValue);
+      JsBarcode(svgRef.current, barcodeValue, {
+        format: isEAN13 ? "EAN13" : "CODE128",
+        width: dims.wMm <= 20 ? 0.8 : dims.wMm <= 30 ? 1.0 : 1.5,
+        height: Math.min(40, Math.max(12, dims.hMm * 0.35 * MM_TO_PX)),
+        displayValue: false,
+        margin: 10,
+        background: "transparent",
+      });
+    } catch {
+      // ignore invalid barcode
+    }
+  }, [variant.barcode, dims.wMm, dims.hMm]);
 
   return (
     <div
@@ -314,8 +332,6 @@ export function BarcodeLabelPrintModal({
   const [customW, setCustomW] = useState(String(DEFAULT_LABEL_W_MM));
   const [customH, setCustomH] = useState(String(DEFAULT_LABEL_H_MM));
 
-  const printRefs = useRef<(SVGSVGElement | null)[]>([]);
-
   useEffect(() => {
     if (!open) return;
     setSelectedVariantId(variants[0]?.id ?? "");
@@ -330,39 +346,6 @@ export function BarcodeLabelPrintModal({
     variants.find((v) => v.id === selectedVariantId) ?? variants[0];
 
   const dims = resolveDims(sizeMode, labelSize, customW, customH);
-
-  // ── Render barcodes into the hidden print DOM whenever inputs change ────────
-  useEffect(() => {
-    if (!selectedVariant) return;
-    printRefs.current.forEach((svg) => {
-      if (!svg) return;
-      try {
-        const barcodeValue = selectedVariant.barcode || "000000";
-        const isEAN13 = /^\d{13}$/.test(barcodeValue);
-        JsBarcode(svg, barcodeValue, {
-          format: isEAN13 ? "EAN13" : "CODE128",
-          /*
-           * Bar width calibrated per label width:
-           * - tiny (<=20mm): 0.8px bar width
-           * - small (<=30mm): 1.0px
-           * - normal: 1.5px
-           * This prevents barcode from being too wide and overflowing the label.
-           */
-          width: dims.wMm <= 20 ? 0.8 : dims.wMm <= 30 ? 1.0 : 1.5,
-          /*
-           * Height in px: We target ~35% of label height (in mm → px at 96dpi).
-           * Capped at 40px max to stay within typical thermal printer resolution.
-           */
-          height: Math.min(40, Math.max(12, dims.hMm * 0.35 * MM_TO_PX)),
-          displayValue: false,
-          margin: 10,
-          background: "transparent",
-        });
-      } catch {
-        // ignore invalid barcode
-      }
-    });
-  }, [selectedVariant, copies, dims]);
 
   function handlePrint() {
     // Quantity is encoded in the print portal (N label elements). Do not pass
@@ -579,9 +562,6 @@ export function BarcodeLabelPrintModal({
                 variant={selectedVariant}
                 dims={dims}
                 currency={currency}
-                svgRef={(el) => {
-                  printRefs.current[i] = el;
-                }}
               />
             ))}
           </div>
