@@ -158,9 +158,16 @@ router.get("/auth/setup-status", async (_req, res) => {
     .select({ id: storesTable.id, isSetupComplete: storesTable.isSetupComplete })
     .from(storesTable)
     .limit(1);
+
+  const [user] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.isDeleted, false))
+    .limit(1);
+
   res.json({
     storeExists: Boolean(store),
-    isSetupComplete: Boolean(store?.isSetupComplete),
+    isSetupComplete: Boolean(store?.isSetupComplete) && Boolean(user),
   });
 });
 
