@@ -25,10 +25,14 @@ const crypto = require("crypto");
 // Constants
 // ---------------------------------------------------------------------------
 
+// Override userData path early before any lock requests to avoid Windows path
+// issues caused by the pnpm workspace package name containing a slash (@workspace/desktop).
+app.setPath("userData", path.join(app.getPath("appData"), "ShoeStorePOS"));
+
 const API_PORT = 5001;
 const API_BASE = `http://localhost:${API_PORT}`;
 const HEALTH_URL = `${API_BASE}/api/healthz`;
-const APP_DATA_DIR = path.join(app.getPath("userData"), "ShoeStorePOS");
+const APP_DATA_DIR = app.getPath("userData");
 const DB_PATH = path.join(APP_DATA_DIR, "store.db");
 const SECRET_PATH = path.join(APP_DATA_DIR, "secret.key");
 const LOG_PATH = path.join(APP_DATA_DIR, "app.log");

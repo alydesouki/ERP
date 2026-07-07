@@ -701,7 +701,10 @@ const salaryColumns = {
   employeeId: salaryRecordsTable.employeeId,
   employeeName: employeesTable.name,
   periodMonth: salaryRecordsTable.periodMonth,
+  payPeriodType: salaryRecordsTable.payPeriodType,
   baseSalary: salaryRecordsTable.baseSalary,
+  advanceDeduction: salaryRecordsTable.advanceDeduction,
+  otherDeductions: salaryRecordsTable.otherDeductions,
   deductions: salaryRecordsTable.deductions,
   bonuses: salaryRecordsTable.bonuses,
   netAmount: salaryRecordsTable.netAmount,
@@ -760,9 +763,11 @@ router.post(
     }
     const storeId = req.auth!.storeId;
     const userId = req.auth!.userId;
-    const { employeeId, periodMonth } = parsed.data;
+    const { employeeId, periodMonth, payPeriodType } = parsed.data;
     const bonuses = parsed.data.bonuses ?? 0;
-    const deductions = parsed.data.deductions ?? 0;
+    const advanceDeduction = parsed.data.advanceDeduction ?? 0;
+    const otherDeductions = parsed.data.otherDeductions ?? 0;
+    const totalDeductions = advanceDeduction + otherDeductions;
 
     await ensureStoreFinancials(db, storeId);
 
@@ -785,12 +790,13 @@ router.post(
             ? parsed.data.baseSalary
             : toNum(employee.monthlySalary);
 
-        if (deductions > toNum(employee.advanceBalance)) {
+        // Only advance deduction is constrained by the advance balance.
+        if (advanceDeduction > toNum(employee.advanceBalance)) {
           throw new Error("DEDUCTIONS_EXCEED_ADVANCE");
         }
 
         const gross = baseSalary + bonuses;
-        const netAmount = gross - deductions;
+        const netAmount = gross - totalDeductions;
         if (netAmount < 0) throw new Error("NEGATIVE_NET");
 
         const existing = await tx
@@ -811,8 +817,11 @@ router.post(
             storeId,
             employeeId,
             periodMonth,
+            payPeriodType: payPeriodType ?? "MONTHLY",
             baseSalary: money(baseSalary),
-            deductions: money(deductions),
+            advanceDeduction: money(advanceDeduction),
+            otherDeductions: money(otherDeductions),
+            deductions: money(totalDeductions),
             bonuses: money(bonuses),
             netAmount: money(netAmount),
             status: "PENDING",
@@ -841,7 +850,7 @@ router.post(
         return;
       }
       if (err instanceof Error && err.message === "DEDUCTIONS_EXCEED_ADVANCE") {
-        res.status(400).json({ error: "الخصومات تتجاوز رصيد السلف" });
+        res.status(400).json({ error: "استقطاع السلفة يتجاوز رصيد سلفة الموظف" });
         return;
       }
       if (err instanceof Error && err.message === "NEGATIVE_NET") {
@@ -849,7 +858,7 @@ router.post(
         return;
       }
       if (err instanceof Error && err.message === "DUPLICATE_PERIOD") {
-        res.status(409).json({ error: "يوجد راتب لهذا الموظف عن نفس الشهر" });
+        res.status(409).json({ error: "يوجد راتب لهذا الموظف عن نفس الفترة" });
         return;
       }
       throw err;
@@ -861,7 +870,7 @@ router.post(
       action: "salary.create",
       entityType: "salary_record",
       entityId: salaryId,
-      newValue: { employeeId, periodMonth },
+      newValue: { employeeId, periodMonth, payPeriodType },
       ipAddress: clientIp(req),
     });
 
@@ -902,13 +911,13 @@ router.post(
             periodMonth: salaryRecordsTable.periodMonth,
             baseSalary: salaryRecordsTable.baseSalary,
             bonuses: salaryRecordsTable.bonuses,
-            deductions: salaryRecordsTable.deductions,
+            advanceDeduction: salaryRecordsTable.advanceDeduction,
+            otherDeductions: salaryRecordsTable.otherDeductions,
             netAmount: salaryRecordsTable.netAmount,
             status: salaryRecordsTable.status,
           })
           .from(salaryRecordsTable)
           .where(and(eq(salaryRecordsTable.id, id), eq(salaryRecordsTable.storeId, storeId)))
-          
           .limit(1);
         if (!rec) throw new Error("SALARY_NOT_FOUND");
         if (rec.status === "PAID") throw new Error("ALREADY_PAID");
@@ -926,7 +935,8 @@ router.post(
         if (!drawer) throw new Error("TREASURY_ACCOUNT_NOT_FOUND");
 
         const gross = toNum(rec.baseSalary) + toNum(rec.bonuses);
-        const deductions = toNum(rec.deductions);
+        const advanceDeduction = toNum(rec.advanceDeduction);
+        const otherDeductions = toNum(rec.otherDeductions);
         const net = toNum(rec.netAmount);
 
         await postTreasuryTransaction(tx, {
@@ -944,14 +954,20 @@ router.post(
           { code: "2100", debit: gross },
           { code: TREASURY_TYPE_TO_ACCOUNT_CODE[drawer.type], credit: net },
         ];
-        if (deductions > 0) {
-          lines.push({ code: "1300", credit: deductions });
+        
+        if (advanceDeduction > 0) {
+          lines.push({ code: "1300", credit: advanceDeduction });
           await tx
             .update(employeesTable)
             .set({
-              advanceBalance: sql`${employeesTable.advanceBalance} - ${money(deductions)}`,
+              advanceBalance: sql`${employeesTable.advanceBalance} - ${money(advanceDeduction)}`,
             })
             .where(eq(employeesTable.id, rec.employeeId));
+        }
+
+        if (otherDeductions > 0) {
+          // Disciplinary/absence deductions reduce the recognized salary expense
+          lines.push({ code: "5200", credit: otherDeductions });
         }
 
         await postJournalEntry(tx, {

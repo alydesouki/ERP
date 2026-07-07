@@ -9,6 +9,8 @@ import {
   Banknote,
   CreditCard,
   Smartphone,
+  ArrowRightLeft,
+  Settings2,
 } from "lucide-react";
 import {
   useListTreasuryAccounts,
@@ -18,9 +20,10 @@ import {
   useOpenTreasurySession,
   useCloseTreasurySession,
   ApiError,
+  customFetch,
   type TreasuryAccount,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/modal";
@@ -60,6 +63,8 @@ const REF_TYPE_LABELS: Record<string, string> = {
   CUSTOMER_PAYMENT: "تحصيل عميل",
   SUPPLIER_PAYMENT: "سداد مورد",
   OPENING: "افتتاحي",
+  TRANSFER: "تحويل رصيد",
+  ADJUSTMENT: "تسوية حساب",
 };
 
 export function TreasuryPage() {
@@ -71,6 +76,8 @@ export function TreasuryPage() {
   const sessionsQuery = useListTreasurySessions({ page: 1, pageSize: 20 });
 
   const [sessionAccount, setSessionAccount] = useState<TreasuryAccount | null>(null);
+  const [adjustmentAccount, setAdjustmentAccount] = useState<TreasuryAccount | null>(null);
+  const [showTransfer, setShowTransfer] = useState(false);
 
   const accounts = accountsQuery.data ?? [];
   const transactions = txQuery.data?.items ?? [];
@@ -79,11 +86,22 @@ export function TreasuryPage() {
   return (
     <div className="flex-1 overflow-auto p-6 lg:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
-        <PageHeader
-          title="الخزينة"
-          subtitle="أرصدة الخزائن والورديات والحركات المالية"
-          icon={<Wallet size={24} />}
-        />
+        <div className="flex items-center justify-between">
+          <PageHeader
+            title="الخزينة"
+            subtitle="أرصدة الخزائن والورديات والحركات المالية"
+            icon={<Wallet size={24} />}
+          />
+          {canSession && accounts.length > 1 && (
+            <button
+              onClick={() => setShowTransfer(true)}
+              className="px-5 py-2.5 bg-amber-500 text-slate-900 rounded-xl font-bold hover:bg-amber-400 transition flex items-center gap-2"
+            >
+              <ArrowRightLeft size={18} />
+              تحويل رصيد
+            </button>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {accountsQuery.isLoading ? (
@@ -100,13 +118,22 @@ export function TreasuryPage() {
                     {ACCOUNT_ICONS[a.type] ?? <Wallet size={22} />}
                   </div>
                   {canSession && (
-                    <button
-                      onClick={() => setSessionAccount(a)}
-                      className="text-xs font-bold text-amber-700 hover:text-amber-800 transition"
-                      data-testid={`button-session-${a.type}`}
-                    >
-                      الوردية
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setAdjustmentAccount(a)}
+                        className="text-xs font-bold text-slate-500 hover:text-slate-800 transition bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded"
+                        title="تسوية الرصيد"
+                      >
+                        تسوية
+                      </button>
+                      <button
+                        onClick={() => setSessionAccount(a)}
+                        className="text-xs font-bold text-amber-700 hover:text-amber-800 transition"
+                        data-testid={`button-session-${a.type}`}
+                      >
+                        الوردية
+                      </button>
+                    </div>
                   )}
                 </div>
                 <p className="text-slate-500 text-sm">{a.name}</p>
@@ -230,10 +257,13 @@ export function TreasuryPage() {
       </div>
 
       {sessionAccount && (
-        <SessionModal
-          account={sessionAccount}
-          onClose={() => setSessionAccount(null)}
-        />
+        <SessionModal account={sessionAccount} onClose={() => setSessionAccount(null)} />
+      )}
+      {showTransfer && (
+        <TransferModal accounts={accounts} onClose={() => setShowTransfer(false)} />
+      )}
+      {adjustmentAccount && (
+        <AdjustmentModal account={adjustmentAccount} onClose={() => setAdjustmentAccount(null)} />
       )}
     </div>
   );
@@ -404,3 +434,214 @@ function SessionModal({
     </Modal>
   );
 }
+
+function TransferModal({
+  accounts,
+  onClose,
+}: {
+  accounts: TreasuryAccount[];
+  onClose: () => void;
+}) {
+  const [fromAccountId, setFromAccountId] = useState(accounts[0]?.id || "");
+  const [toAccountId, setToAccountId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const queryClient = useQueryClient();
+  const mut = useMutation({
+    mutationFn: async () => {
+      await customFetch("/treasury/transfers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromAccountId,
+          toAccountId,
+          amount: Number(amount),
+          description: notes,
+        }),
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["/treasury"] });
+      onClose();
+    },
+    onError: (err) => setError(apiErrorMessage(err, "فشل تحويل الرصيد")),
+  });
+
+  return (
+    <Modal open onClose={onClose} title="تحويل رصيد بين الخزائن">
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">من الخزينة</label>
+          <select
+            className={inputClass}
+            value={fromAccountId}
+            onChange={(e) => setFromAccountId(e.target.value)}
+          >
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} — رصيد: {money(a.balance)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">إلى الخزينة</label>
+          <select
+            className={inputClass}
+            value={toAccountId}
+            onChange={(e) => setToAccountId(e.target.value)}
+          >
+            <option value="">-- اختر الخزينة الوجهة --</option>
+            {accounts
+              .filter((a) => a.id !== fromAccountId)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} — رصيد: {money(a.balance)}
+                </option>
+              ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">المبلغ</label>
+          <input
+            type="number"
+            className={inputClass}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">ملاحظات</label>
+          <input
+            type="text"
+            className={inputClass}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+        {error && (
+          <div className="bg-red-50 text-red-700 text-sm font-medium rounded-xl px-4 py-3 border border-red-100">
+            {error}
+          </div>
+        )}
+        <button
+          onClick={() => mut.mutate()}
+          disabled={mut.isPending || !toAccountId || !amount}
+          className="w-full py-2.5 bg-amber-500 text-slate-900 rounded-xl font-bold hover:bg-amber-400 transition disabled:opacity-60 flex items-center justify-center gap-2"
+        >
+          {mut.isPending && <Loader2 size={18} className="animate-spin" />}
+          تأكيد التحويل
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function AdjustmentModal({
+  account,
+  onClose,
+}: {
+  account: TreasuryAccount;
+  onClose: () => void;
+}) {
+  const [direction, setDirection] = useState<"IN" | "OUT">("OUT");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const queryClient = useQueryClient();
+  const mut = useMutation({
+    mutationFn: async () => {
+      await customFetch("/treasury/adjustments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          treasuryAccountId: account.id,
+          direction,
+          amount: Number(amount),
+          reason,
+        }),
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["/treasury"] });
+      onClose();
+    },
+    onError: (err) => setError(apiErrorMessage(err, "فشلت عملية التسوية")),
+  });
+
+  return (
+    <Modal open onClose={onClose} title={`تسوية رصيد الخزينة — ${account.name}`}>
+      <div className="space-y-4">
+        <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm flex justify-between">
+          <span className="text-slate-500">الرصيد الحالي بالنظام</span>
+          <span className="font-bold text-slate-800">{money(account.balance)}</span>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">نوع التسوية</label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                checked={direction === "OUT"}
+                onChange={() => setDirection("OUT")}
+                className="w-4 h-4 text-amber-500"
+              />
+              <span className="text-sm font-medium text-slate-700">نقصان (عجز / سحب غير مسجل)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                checked={direction === "IN"}
+                onChange={() => setDirection("IN")}
+                className="w-4 h-4 text-amber-500"
+              />
+              <span className="text-sm font-medium text-slate-700">زيادة (فائض غير مسجل)</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">مبلغ التسوية</label>
+          <input
+            type="number"
+            className={inputClass}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">سبب التسوية <span className="text-red-500">*</span></label>
+          <input
+            type="text"
+            className={inputClass}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="أدخل سبب التسوية للمراجعة المستنداتية"
+          />
+        </div>
+        
+        {error && (
+          <div className="bg-red-50 text-red-700 text-sm font-medium rounded-xl px-4 py-3 border border-red-100">
+            {error}
+          </div>
+        )}
+        
+        <button
+          onClick={() => mut.mutate()}
+          disabled={mut.isPending || !amount || !reason}
+          className="w-full py-2.5 bg-amber-500 text-slate-900 rounded-xl font-bold hover:bg-amber-400 transition disabled:opacity-60 flex items-center justify-center gap-2"
+        >
+          {mut.isPending && <Loader2 size={18} className="animate-spin" />}
+          حفظ التسوية
+        </button>
+      </div>
+    </Modal>
+  );
+}
+

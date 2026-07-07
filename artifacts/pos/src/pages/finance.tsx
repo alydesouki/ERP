@@ -747,10 +747,12 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState("");
+  const [payPeriodType, setPayPeriodType] = useState<"DAILY" | "WEEKLY" | "MONTHLY">("MONTHLY");
   const [periodMonth, setPeriodMonth] = useState(thisMonth());
   const [baseSalary, setBaseSalary] = useState("");
   const [bonuses, setBonuses] = useState("");
-  const [deductions, setDeductions] = useState("");
+  const [advanceDeduction, setAdvanceDeduction] = useState("");
+  const [otherDeductions, setOtherDeductions] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const [payTarget, setPayTarget] = useState<SalaryRecord | null>(null);
@@ -770,10 +772,12 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
 
   function openAdd() {
     setEmployeeId("");
+    setPayPeriodType("MONTHLY");
     setPeriodMonth(thisMonth());
     setBaseSalary("");
     setBonuses("");
-    setDeductions("");
+    setAdvanceDeduction("");
+    setOtherDeductions("");
     setError(null);
     setModalOpen(true);
   }
@@ -784,7 +788,7 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
     if (emp) {
       setBaseSalary(emp.monthlySalary);
       const adv = Number(emp.advanceBalance) || 0;
-      if (adv > 0) setDeductions(adv.toString());
+      if (adv > 0) setAdvanceDeduction(adv.toString());
     }
   }
 
@@ -792,15 +796,17 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
     e.preventDefault();
     setError(null);
     if (!employeeId) return setError("اختر الموظف.");
-    if (!periodMonth) return setError("أدخل شهر الاستحقاق.");
+    if (!periodMonth) return setError("أدخل فترة الاستحقاق.");
     try {
-      await createMutation.mutateAsync({
+      await (createMutation.mutateAsync as any)({
         data: {
           employeeId,
           periodMonth,
+          payPeriodType,
           baseSalary: baseSalary ? Number(baseSalary) : 0,
           bonuses: bonuses ? Number(bonuses) : 0,
-          deductions: deductions ? Number(deductions) : 0,
+          advanceDeduction: advanceDeduction ? Number(advanceDeduction) : 0,
+          otherDeductions: otherDeductions ? Number(otherDeductions) : 0,
         },
       });
       invalidate();
@@ -823,23 +829,32 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="text-right font-bold px-6 py-3">الموظف</th>
-              <th className="text-right font-bold px-6 py-3">الشهر</th>
+              <th className="text-right font-bold px-6 py-3">الفترة</th>
               <th className="text-right font-bold px-6 py-3">الأساسي</th>
               <th className="text-right font-bold px-6 py-3">حوافز</th>
-              <th className="text-right font-bold px-6 py-3">خصومات</th>
+              <th className="text-right font-bold px-6 py-3">خصم السلف</th>
+              <th className="text-right font-bold px-6 py-3">خصم أخرى</th>
               <th className="text-right font-bold px-6 py-3">الصافي</th>
               <th className="text-right font-bold px-6 py-3">الحالة</th>
               {canManage && <th className="text-left font-bold px-6 py-3">إجراءات</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {salaries.map((s) => (
+            {salaries.map((s: any) => (
               <tr key={s.id} data-testid={`row-salary-${s.id}`}>
                 <td className="px-6 py-3 font-medium text-slate-700">{s.employeeName ?? "—"}</td>
-                <td className="px-6 py-3 text-slate-600">{s.periodMonth}</td>
+                <td className="px-6 py-3 text-slate-600">
+                  <div className="flex flex-col">
+                    <span>{s.periodMonth}</span>
+                    <span className="text-[10px] text-slate-400">
+                      {s.payPeriodType === "DAILY" ? "يومي" : s.payPeriodType === "WEEKLY" ? "أسبوعي" : "شهري"}
+                    </span>
+                  </div>
+                </td>
                 <td className="px-6 py-3 text-slate-600">{money(s.baseSalary)}</td>
                 <td className="px-6 py-3 text-green-600">{money(s.bonuses)}</td>
-                <td className="px-6 py-3 text-red-600">{money(s.deductions)}</td>
+                <td className="px-6 py-3 text-red-600">{money(s.advanceDeduction)}</td>
+                <td className="px-6 py-3 text-red-600">{money(s.otherDeductions)}</td>
                 <td className="px-6 py-3 font-bold text-slate-800">{money(s.netAmount)}</td>
                 <td className="px-6 py-3">
                   {s.status === "PAID" ? (
@@ -893,23 +908,33 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
               ))}
             </select>
           </Field>
-          <Field label="الشهر (YYYY-MM)" required>
+          <Field label="نظام الدفع" required>
+            <select
+              className={inputClass}
+              value={payPeriodType}
+              onChange={(e) => setPayPeriodType(e.target.value as any)}
+            >
+              <option value="MONTHLY">شهري</option>
+              <option value="WEEKLY">أسبوعي</option>
+              <option value="DAILY">يومي</option>
+            </select>
+          </Field>
+          <Field label="الفترة (اسم أو تاريخ يعبر عن الاستحقاق)" required>
             <input
-              type="month"
+              type="text"
               className={inputClass}
               value={periodMonth}
               onChange={(e) => setPeriodMonth(e.target.value)}
-              data-testid="input-salary-period"
+              placeholder="مثال: يناير 2026 أو الأسبوع الأول..."
             />
           </Field>
-          <Field label="الراتب الأساسي">
+          <Field label="الراتب الأساسي أو قيمة الفترة المحددة">
             <input
               type="number"
               step="0.01"
               className={inputClass}
               value={baseSalary}
               onChange={(e) => setBaseSalary(e.target.value)}
-              data-testid="input-salary-base"
             />
           </Field>
           <Field label="الحوافز">
@@ -919,19 +944,36 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
               className={inputClass}
               value={bonuses}
               onChange={(e) => setBonuses(e.target.value)}
-              data-testid="input-salary-bonuses"
             />
           </Field>
-          <Field label="الخصومات (تُسدد من رصيد السلف)">
-            <input
-              type="number"
-              step="0.01"
-              className={inputClass}
-              value={deductions}
-              onChange={(e) => setDeductions(e.target.value)}
-              data-testid="input-salary-deductions"
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="استقطاع السلف">
+              <input
+                type="number"
+                step="0.01"
+                className={inputClass}
+                value={advanceDeduction}
+                onChange={(e) => setAdvanceDeduction(e.target.value)}
+                placeholder="تُسدد من رصيد السلف"
+              />
+              <span className="text-xs text-slate-500 mt-1 block">
+                تخصم من رصيد السلف (حساب 1300)
+              </span>
+            </Field>
+            <Field label="خصومات أخرى">
+              <input
+                type="number"
+                step="0.01"
+                className={inputClass}
+                value={otherDeductions}
+                onChange={(e) => setOtherDeductions(e.target.value)}
+                placeholder="غياب، جزاءات..."
+              />
+              <span className="text-xs text-slate-500 mt-1 block">
+                تخفض مصروف الرواتب
+              </span>
+            </Field>
+          </div>
           {error && <ErrorBox message={error} />}
           <SubmitButton busy={createMutation.isPending} label="تسجيل الاستحقاق" />
         </form>

@@ -41,6 +41,7 @@ export const CHART_OF_ACCOUNTS: ChartEntry[] = [
   { code: "5000", name: "تكلفة البضاعة المباعة", nameEn: "COGS", type: "EXPENSE", normalBalance: "DEBIT", isContra: false },
   { code: "5100", name: "مصاريف تشغيلية", nameEn: "Operating Expenses", type: "EXPENSE", normalBalance: "DEBIT", isContra: false },
   { code: "5200", name: "مصروف الرواتب", nameEn: "Salary Expense", type: "EXPENSE", normalBalance: "DEBIT", isContra: false },
+  { code: "6000", name: "فروق الخزينة", nameEn: "Treasury Variance", type: "EQUITY", normalBalance: "CREDIT", isContra: false },
 ];
 
 type TreasuryType = "CASH" | "CARD" | "INSTAPAY" | "WALLET";

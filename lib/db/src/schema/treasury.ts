@@ -25,6 +25,8 @@ export const treasuryRefTypeEnum = [
   "CUSTOMER_PAYMENT",
   "SUPPLIER_PAYMENT",
   "OPENING",
+  "TRANSFER",
+  "ADJUSTMENT",
 ] as const;
 
 export const treasurySessionStatusEnum = ["OPEN", "CLOSED"] as const;
@@ -109,9 +111,61 @@ export const treasuryTransactionsTable = sqliteTable(
   ],
 );
 
+// Records an inter-account transfer for clean audit trail. Referenced by two
+// treasury_transactions rows (OUT from source, IN to destination).
+export const treasuryTransfersTable = sqliteTable(
+  "treasury_transfers",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
+      .notNull()
+      .references(() => storesTable.id, { onDelete: "restrict" }),
+    fromAccountId: text("from_account_id")
+      .notNull()
+      .references(() => treasuryAccountsTable.id, { onDelete: "restrict" }),
+    toAccountId: text("to_account_id")
+      .notNull()
+      .references(() => treasuryAccountsTable.id, { onDelete: "restrict" }),
+    amount: text("amount").notNull(),
+    description: text("description"),
+    createdBy: text("created_by").references(() => usersTable.id, { onDelete: "restrict" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("treasury_transfers_store_idx").on(table.storeId, table.createdAt),
+  ],
+);
+
+// Records a manual treasury adjustment (reconciliation). Referenced by one
+// treasury_transaction row.
+export const treasuryAdjustmentsTable = sqliteTable(
+  "treasury_adjustments",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    storeId: text("store_id")
+      .notNull()
+      .references(() => storesTable.id, { onDelete: "restrict" }),
+    treasuryAccountId: text("treasury_account_id")
+      .notNull()
+      .references(() => treasuryAccountsTable.id, { onDelete: "restrict" }),
+    direction: text("direction", { enum: treasuryTxDirectionEnum }).notNull(),
+    amount: text("amount").notNull(),
+    reason: text("reason").notNull(),
+    createdBy: text("created_by").references(() => usersTable.id, { onDelete: "restrict" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("treasury_adjustments_store_idx").on(table.storeId, table.createdAt),
+  ],
+);
+
 export type TreasuryAccount = typeof treasuryAccountsTable.$inferSelect;
 export type InsertTreasuryAccount = typeof treasuryAccountsTable.$inferInsert;
 export type TreasurySession = typeof treasurySessionsTable.$inferSelect;
 export type InsertTreasurySession = typeof treasurySessionsTable.$inferInsert;
 export type TreasuryTransaction = typeof treasuryTransactionsTable.$inferSelect;
 export type InsertTreasuryTransaction = typeof treasuryTransactionsTable.$inferInsert;
+export type TreasuryTransfer = typeof treasuryTransfersTable.$inferSelect;
+export type InsertTreasuryTransfer = typeof treasuryTransfersTable.$inferInsert;
+export type TreasuryAdjustment = typeof treasuryAdjustmentsTable.$inferSelect;
+export type InsertTreasuryAdjustment = typeof treasuryAdjustmentsTable.$inferInsert;

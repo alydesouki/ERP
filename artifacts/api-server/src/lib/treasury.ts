@@ -16,7 +16,9 @@ export type TreasuryRefType =
   | "DEPOSIT"
   | "CUSTOMER_PAYMENT"
   | "SUPPLIER_PAYMENT"
-  | "OPENING";
+  | "OPENING"
+  | "TRANSFER"
+  | "ADJUSTMENT";
 
 export interface TreasuryPosting {
   storeId: string;

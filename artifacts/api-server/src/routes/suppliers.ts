@@ -6,6 +6,7 @@ import {
   supplierTransactionsTable,
   treasuryAccountsTable,
   storeSettingsTable,
+  purchaseInvoicesTable,
 } from "@workspace/db";
 import {
   ListSuppliersQueryParams,
@@ -245,8 +246,16 @@ router.get(
         referenceId: supplierTransactionsTable.referenceId,
         description: supplierTransactionsTable.description,
         createdAt: supplierTransactionsTable.createdAt,
+        invoiceNumber: purchaseInvoicesTable.invoiceNumber,
       })
       .from(supplierTransactionsTable)
+      .leftJoin(
+        purchaseInvoicesTable,
+        and(
+          eq(supplierTransactionsTable.referenceType, "PURCHASE"),
+          eq(supplierTransactionsTable.referenceId, purchaseInvoicesTable.id)
+        )
+      )
       .where(eq(supplierTransactionsTable.supplierId, String(req.params["id"])))
       .orderBy(desc(supplierTransactionsTable.createdAt))
       .limit(1000);

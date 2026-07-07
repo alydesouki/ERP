@@ -78,8 +78,11 @@ export const employeesTable = sqliteTable(
 );
 
 export const salaryStatusEnum = ["PENDING", "PAID"] as const;
+export const payPeriodTypeEnum = ["DAILY", "WEEKLY", "MONTHLY"] as const;
 
-// A monthly salary line for an employee. When paid, posts treasury OUT + journal.
+// A salary payment record. Supports daily/weekly/monthly pay periods.
+// advanceDeduction = portion of deductions recovered from employee advances.
+// otherDeductions   = disciplinary/absence deductions (do NOT reduce advanceBalance).
 export const salaryRecordsTable = sqliteTable(
   "salary_records",
   {
@@ -90,8 +93,17 @@ export const salaryRecordsTable = sqliteTable(
     employeeId: text("employee_id")
       .notNull()
       .references(() => employeesTable.id, { onDelete: "restrict" }),
+    // payPeriodType drives how periodLabel is formatted.
+    payPeriodType: text("pay_period_type", { enum: payPeriodTypeEnum }).notNull().default("MONTHLY"),
+    // periodLabel stores the period in a human-readable format:
+    //   MONTHLY → "2025-07", WEEKLY → "2025-W28", DAILY → "2025-07-07"
     periodMonth: text("period_month").notNull(),
     baseSalary: text("base_salary").notNull().default("0"),
+    // advanceDeduction: recovered from the employee's outstanding advance balance.
+    advanceDeduction: text("advance_deduction").notNull().default("0"),
+    // otherDeductions: disciplinary/absence — does NOT reduce advanceBalance.
+    otherDeductions: text("other_deductions").notNull().default("0"),
+    // deductions kept for backward compatibility = advanceDeduction + otherDeductions.
     deductions: text("deductions").notNull().default("0"),
     bonuses: text("bonuses").notNull().default("0"),
     netAmount: text("net_amount").notNull().default("0"),

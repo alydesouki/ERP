@@ -425,7 +425,46 @@ router.post(
           creditByCode.set(code, (creditByCode.get(code) ?? 0) + applied);
         }
 
-        // Credit portion → supplier ledger + AP.
+        // Supplier ledger: always record full PURCHASE, then immediately record PAYMENT if cash paid.
+        let currentSupplierBalance = toNum(supplier.currentBalance);
+        
+        if (totalAmount > 0) {
+          currentSupplierBalance += totalAmount;
+          await tx.insert(supplierTransactionsTable).values({
+            storeId,
+            supplierId,
+            type: "PURCHASE",
+            credit: money(totalAmount),
+            balanceAfter: money(currentSupplierBalance),
+            referenceType: "PURCHASE",
+            referenceId: purchase.id,
+            description: `فاتورة شراء ${invoiceNumber}`,
+            createdBy: userId,
+          });
+        }
+        
+        if (tendered > 0) {
+          currentSupplierBalance -= tendered;
+          await tx.insert(supplierTransactionsTable).values({
+            storeId,
+            supplierId,
+            type: "PAYMENT",
+            debit: money(tendered),
+            balanceAfter: money(currentSupplierBalance),
+            referenceType: "PURCHASE",
+            referenceId: purchase.id,
+            description: `سداد نقدي لفاتورة ${invoiceNumber}`,
+            createdBy: userId,
+          });
+        }
+        
+        if (currentSupplierBalance !== toNum(supplier.currentBalance)) {
+          await tx
+            .update(suppliersTable)
+            .set({ currentBalance: money(currentSupplierBalance) })
+            .where(eq(suppliersTable.id, supplierId));
+        }
+
         if (creditAmount > 0) {
           await tx.insert(purchasePaymentsTable).values({
             storeId,
@@ -433,22 +472,6 @@ router.post(
             method: "CREDIT",
             amount: money(creditAmount),
           });
-          const newBalance = toNum(supplier.currentBalance) + creditAmount;
-          await tx.insert(supplierTransactionsTable).values({
-            storeId,
-            supplierId,
-            type: "PURCHASE",
-            credit: money(creditAmount),
-            balanceAfter: money(newBalance),
-            referenceType: "PURCHASE",
-            referenceId: purchase.id,
-            description: `فاتورة شراء ${invoiceNumber}`,
-            createdBy: userId,
-          });
-          await tx
-            .update(suppliersTable)
-            .set({ currentBalance: money(newBalance) })
-            .where(eq(suppliersTable.id, supplierId));
           creditByCode.set("2000", (creditByCode.get("2000") ?? 0) + creditAmount);
         }
 

@@ -588,6 +588,7 @@ function SupplierStatementModal({
                 <tr>
                   <th className="text-right font-bold px-4 py-3">التاريخ</th>
                   <th className="text-right font-bold px-4 py-3">النوع</th>
+                  <th className="text-right font-bold px-4 py-3">الفاتورة</th>
                   <th className="text-right font-bold px-4 py-3">مدين</th>
                   <th className="text-right font-bold px-4 py-3">دائن</th>
                   <th className="text-right font-bold px-4 py-3">الرصيد</th>
@@ -601,6 +602,9 @@ function SupplierStatementModal({
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {TX_TYPE_LABELS[t.type] ?? t.type}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-slate-500">
+                      {(t as any).invoiceNumber ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-red-600">
                       {Number(t.debit) ? money(t.debit) : "—"}

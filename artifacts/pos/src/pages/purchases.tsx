@@ -32,6 +32,7 @@ import { normalizeBarcodeInput } from "@/lib/barcode-input";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/modal";
+import { QuickProductModal } from "@/components/quick-product-modal";
 
 const CUR = "ج.م";
 
@@ -147,6 +148,7 @@ function NewPurchase({ onDone }: { onDone: () => void }) {
 
   const [supplierId, setSupplierId] = useState("");
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
+  const [showQuickProduct, setShowQuickProduct] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
   const activeWarehouseId = warehouseId || warehouses[0]?.id || "";
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState("");
@@ -352,15 +354,26 @@ function NewPurchase({ onDone }: { onDone: () => void }) {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
-          <div className="relative">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(normalizeBarcodeInput(e.target.value))}
-              placeholder="بحث عن منتج لإضافته..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
-              data-testid="input-purchase-search"
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(normalizeBarcodeInput(e.target.value))}
+                placeholder="بحث عن منتج لإضافته..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                data-testid="input-purchase-search"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowQuickProduct(true)}
+              className="px-4 py-2.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl font-bold text-sm transition flex items-center gap-2 border border-amber-200 shrink-0"
+              title="إضافة منتج سريع"
+            >
+              <PackagePlus size={18} />
+              صنف جديد
+            </button>
           </div>
           {search.trim() && (
             <div className="mt-3 max-h-56 overflow-y-auto">
@@ -556,9 +569,19 @@ function NewPurchase({ onDone }: { onDone: () => void }) {
       {showCreateSupplier && (
         <CreateSupplierModal
           onClose={() => setShowCreateSupplier(false)}
-          onCreated={(newId) => {
-            setSupplierId(newId);
+          onCreated={(id) => {
+            setSupplierId(id);
             setShowCreateSupplier(false);
+          }}
+        />
+      )}
+
+      {showQuickProduct && (
+        <QuickProductModal
+          onClose={() => setShowQuickProduct(false)}
+          onCreated={(product, variant) => {
+            addVariant(product, variant);
+            setShowQuickProduct(false);
           }}
         />
       )}
