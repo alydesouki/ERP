@@ -38,7 +38,6 @@ export function QuickProductModal({
   const [sellingPrice, setSellingPrice] = useState("");
   const [colorId, setColorId] = useState("");
   const [sizeId, setSizeId] = useState("");
-  const [sku, setSku] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -53,25 +52,43 @@ export function QuickProductModal({
     setError(null);
     if (!name.trim()) return setError("أدخل اسم المنتج");
     if (!categoryId) return setError("اختر القسم");
+    // Both color and size must be provided to create a variant
+    if ((colorId && !sizeId) || (!colorId && sizeId)) {
+      return setError("يجب اختيار اللون والمقاس معاً، أو تركهما فارغَين");
+    }
 
     setPending(true);
     try {
-      const productInput = {
+      // Only include variants array if BOTH colorId AND sizeId are selected.
+      // colorId and sizeId are required UUID fields in the API schema — sending
+      // empty strings or undefined values causes a Zod validation error.
+      const hasVariant = Boolean(colorId && sizeId);
+
+      const productInput: {
+        name: string;
+        categoryId: string;
+        brandId?: string;
+        basePrice: number;
+        baseCostPrice: number;
+        variants?: { colorId: string; sizeId: string; sellingPrice?: number; costPrice?: number }[];
+      } = {
         name: name.trim(),
         categoryId,
         brandId: brandId || undefined,
         basePrice: Number(sellingPrice) || 0,
         baseCostPrice: Number(costPrice) || 0,
-        variants: [
+      };
+
+      if (hasVariant) {
+        productInput.variants = [
           {
-            sku: sku.trim() || undefined,
-            colorId: colorId || undefined,
-            sizeId: sizeId || undefined,
+            colorId,
+            sizeId,
             sellingPrice: sellingPrice ? Number(sellingPrice) : undefined,
             costPrice: costPrice ? Number(costPrice) : undefined,
           },
-        ],
-      };
+        ];
+      }
 
       const res = (await customFetch("/products", {
         method: "POST",
@@ -80,9 +97,16 @@ export function QuickProductModal({
       })) as Product & { variants?: ProductVariant[] };
 
       void queryClient.invalidateQueries({ queryKey: ["/products"] });
-      
+
       const variant = res.variants?.[0];
-      if (!variant) throw new Error("لم يتم إرجاع الصنف");
+      if (!variant) {
+        // Product was created without a variant (no color/size selected).
+        // Notify the parent with the product only so it can display it in the list,
+        // but we cannot add it to the cart without a variant.
+        throw new Error(
+          "تمت إضافة المنتج بنجاح، لكن يجب اختيار لون ومقاس لإضافته للفاتورة. يمكنك العثور عليه في قائمة المنتجات."
+        );
+      }
 
       onCreated(res, variant);
     } catch (err) {
@@ -196,15 +220,6 @@ export function QuickProductModal({
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">الباركود (SKU)</label>
-          <input
-            className={inputClass}
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
-            placeholder="يُترك فارغاً للتوليد التلقائي"
-          />
-        </div>
 
         {error && (
           <div className="bg-red-50 text-red-700 text-sm font-medium rounded-xl px-4 py-3 border border-red-100">

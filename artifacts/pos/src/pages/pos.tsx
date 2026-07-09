@@ -36,7 +36,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
-import { normalizeBarcodeInput } from "@/lib/barcode-input";
+import { useBarcodeInput } from "@/lib/barcode-input";
 import { Modal } from "@/components/modal";
 import { ThermalReceipt, type ReceiptData } from "@/components/thermal-receipt";
 import { PrintPortal } from "@/components/print-portal";
@@ -88,7 +88,17 @@ export function POSPage() {
   const activeWarehouseId = warehouseId || warehouses[0]?.id || "";
 
   // ---- search -------------------------------------------------------------
-  const [search, setSearch] = useState("");
+  // useBarcodeInput tracks inter-key timing to discriminate between:
+  //   - Barcode scanner: rapid burst (< 60ms between keys) → normalizes Arabic
+  //     keyboard-layout characters to English barcode content automatically.
+  //   - Human typing: slow keystrokes (> 100ms) → Arabic passes through as-is.
+  const {
+    value: search,
+    onChange: handleSearchChange,
+    onKeyDown: handleScannerKeyDown,
+    reset: resetSearch,
+  } = useBarcodeInput();
+
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
@@ -108,11 +118,13 @@ export function POSPage() {
   const results = searchQuery.data ?? [];
 
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
+    // Let the barcode hook process Enter first (scanner flow)
+    handleScannerKeyDown(e);
+    if (e.key === "Enter" && !e.defaultPrevented) {
       e.preventDefault();
       if (results.length === 1 && results[0].variantCount === 1) {
         handlePickProduct(results[0]);
-        setSearch("");
+        resetSearch();
       }
     }
   }
@@ -417,7 +429,7 @@ export function POSPage() {
             <input
               ref={searchRef}
               value={search}
-              onChange={(e) => setSearch(normalizeBarcodeInput(e.target.value))}
+              onChange={handleSearchChange}
               onKeyDown={handleSearchKeyDown}
               type="text"
               placeholder="بحث عن منتج بالاسم أو الكود أو الباركود... [F2]"
@@ -768,7 +780,7 @@ export function POSPage() {
           onPick={(variant) => {
             addVariant(pickProduct, variant);
             setPickProduct(null);
-            setSearch("");
+            resetSearch();
             searchRef.current?.focus();
           }}
         />
