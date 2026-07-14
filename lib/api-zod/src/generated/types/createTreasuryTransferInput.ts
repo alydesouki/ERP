@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PasswordResetInput {
-  /** @minLength 4 */
-  newPassword: string;
+export interface CreateTreasuryTransferInput {
+  fromAccountId: string;
+  toAccountId: string;
+  /** @minimum 0.01 */
+  amount: number;
+  description?: string;
 }

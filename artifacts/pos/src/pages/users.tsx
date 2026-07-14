@@ -343,8 +343,8 @@ function UserFormModal({
     if (!isEdit) {
       if (username.trim().length < 3)
         return setError("اسم المستخدم يجب أن يكون 3 أحرف على الأقل.");
-      if (password.length < 8)
-        return setError("كلمة المرور يجب أن تكون 8 أحرف على الأقل.");
+      if (password.length < 4)
+        return setError("Password must contain at least 4 characters.");
     }
     try {
       if (isEdit && user) {
@@ -531,8 +531,8 @@ function ResetPasswordModal({
 
   async function handleSubmit() {
     setError(null);
-    if (password.length < 8)
-      return setError("كلمة المرور يجب أن تكون 8 أحرف على الأقل.");
+    if (password.length < 4)
+      return setError("Password must contain at least 4 characters.");
     if (password !== confirm) return setError("كلمتا المرور غير متطابقتين.");
     try {
       await mutation.mutateAsync({ id: user.id, data: { newPassword: password } });

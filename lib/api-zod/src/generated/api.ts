@@ -38,7 +38,7 @@ export const completeSetupBodyTaxRateMax = 100;
 
 export const completeSetupBodyAdminUsernameMin = 3;
 
-export const completeSetupBodyAdminPasswordMin = 8;
+export const completeSetupBodyAdminPasswordMin = 4;
 
 
 
@@ -184,7 +184,7 @@ export const ListUsersResponse = zod.object({
  */
 export const createUserBodyUsernameMin = 3;
 
-export const createUserBodyPasswordMin = 8;
+export const createUserBodyPasswordMin = 4;
 
 
 export const createUserBodyIsActiveDefault = true;
@@ -298,7 +298,7 @@ export const ResetUserPasswordParams = zod.object({
   "id": zod.string().uuid()
 })
 
-export const resetUserPasswordBodyNewPasswordMin = 8;
+export const resetUserPasswordBodyNewPasswordMin = 4;
 
 
 

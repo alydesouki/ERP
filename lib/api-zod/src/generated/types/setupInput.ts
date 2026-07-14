@@ -26,6 +26,6 @@ export interface SetupInput {
   adminFullName: string;
   /** @minLength 3 */
   adminUsername: string;
-  /** @minLength 8 */
+  /** @minLength 4 */
   adminPassword: string;
 }

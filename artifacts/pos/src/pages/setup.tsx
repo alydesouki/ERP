@@ -109,8 +109,8 @@ export function SetupPage() {
       if (!form.adminFullName.trim()) return "الاسم الكامل للمدير مطلوب.";
       if (form.adminUsername.trim().length < 3)
         return "اسم المستخدم يجب أن يكون 3 أحرف على الأقل.";
-      if (form.adminPassword.length < 8)
-        return "كلمة المرور يجب أن تكون 8 أحرف على الأقل.";
+      if (form.adminPassword.length < 4)
+        return "Password must contain at least 4 characters.";
       if (form.adminPassword !== form.adminPasswordConfirm)
         return "كلمتا المرور غير متطابقتين.";
     }

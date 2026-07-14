@@ -9,7 +9,7 @@
 export interface UserInput {
   /** @minLength 3 */
   username: string;
-  /** @minLength 8 */
+  /** @minLength 4 */
   password: string;
   /** @minLength 1 */
   fullName: string;

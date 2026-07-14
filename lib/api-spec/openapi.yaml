@@ -2955,7 +2955,7 @@ components:
           minLength: 3
         adminPassword:
           type: string
-          minLength: 8
+          minLength: 4
 
     SetupResult:
       type: object
@@ -3089,7 +3089,7 @@ components:
           minLength: 3
         password:
           type: string
-          minLength: 8
+          minLength: 4
         fullName:
           type: string
           minLength: 1
@@ -3127,7 +3127,7 @@ components:
       properties:
         newPassword:
           type: string
-          minLength: 8
+          minLength: 4
 
     Role:
       type: object
