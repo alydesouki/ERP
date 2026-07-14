@@ -283,7 +283,7 @@ Every financial event that touches money (sale, purchase payment, expense, salar
 
 ## Module 12: Reports Hub
 
-**Page:** [`reports.tsx`](file:///c:/Users/moham/Downloads/Shoe-Store-Design/Shoe-Store-Design/artifacts/pos/src/pages/reports.tsx) (18 KB)  
+**Page:** [`reports.tsx`](file:///d:/Erp/ERP/artifacts/pos/src/pages/reports.tsx)  
 **Permission:** `reports.view` / `reports.sales` / `reports.inventory`
 
 ### Reports Available
@@ -292,7 +292,7 @@ Every financial event that touches money (sale, purchase payment, expense, salar
 |---|---|
 | Sales Summary | Date-ranged invoice list, total revenue, payment method breakdown |
 | Purchases Summary | Date-ranged purchase list, total spend by supplier |
-| Inventory Stock | Current qty + value per variant per warehouse |
+| Inventory Stock | Current qty, cost per unit, selling price per unit, **total purchase cost**, **total sales value** per variant per warehouse |
 | Low Stock | Items at/below reorder point sorted by severity |
 | Profit & Loss | Revenue, returns, COGS, gross profit, expenses, salaries, net profit |
 | Treasury | Cash flow movements by account and date |
@@ -306,7 +306,60 @@ Every financial event that touches money (sale, purchase payment, expense, salar
 | Salary Summary | Payroll records, base, bonuses, and deductions over a period |
 | Supplier Aging | Payables bucketed into 0-30, 30-60, 60-90, and 90+ days |
 
+### Report-Specific UI Details
+
+#### Inventory Stock Valuation (تقييم المخزون)
+The report table now includes the following columns:
+
+| Column | Arabic Label | Description |
+|---|---|---|
+| Product | المنتج | Product name |
+| Variant | النوع | Color / size label |
+| SKU | SKU | Stock-keeping unit code |
+| Warehouse | المخزن | Warehouse name |
+| Category | الفئة | Product category |
+| Quantity | الكمية | Current stock quantity |
+| Cost Price | سعر التكلفة | Effective cost per unit = `COALESCE(variant.costPrice, product.baseCostPrice)` |
+| Selling Price | سعر البيع | Effective selling price per unit = `COALESCE(variant.sellingPrice, product.basePrice)` |
+| **Total Purchase Cost** | **إجمالي تكلفة الشراء** | `quantity × effectiveCostPrice` — inventory book value at cost |
+| **Total Sales Value** | **إجمالي قيمة البيع** | `quantity × effectiveSellingPrice` — potential revenue if all stock is sold |
+
+**Summary stats:**
+- **إجمالي الكمية** — total units across all warehouses
+- **إجمالي تكلفة الشراء** — sum of `totalPurchaseCost` across all rows
+- **إجمالي قيمة البيع** — sum of `totalSalesValue` across all rows
+
+**Effective price logic (both cost and selling):**
+- If the variant has its own price override stored in `product_variants.costPrice` / `product_variants.sellingPrice`, that value is used.
+- Otherwise, the product's base price from `products.baseCostPrice` / `products.basePrice` is used.
+- Implemented in SQL as `COALESCE(variant_col, product_base_col)` to ensure correct handling of NULL overrides.
+
+#### Supplier Overview (نظرة مورد)
+- Supplier is selected from a dropdown populated via `GET /api/suppliers`.
+- **API constraint:** `pageSize` max is **100**. The hook must be called with `pageSize: 100` (not 500).
+- After supplier selection, fetches full statement from `GET /api/suppliers/:id/statement`.
+- Supports optional client-side date filtering of statement items.
+
+#### Product Inquiry (استعلام عن منتج)
+- **Two-step selection flow:**
+  1. User types in a search box → triggers `GET /api/products/search?q=...&limit=30` via `useSearchProducts` hook.
+  2. Matching products appear as a clickable autocomplete list (not a select element).
+  3. Clicking a product selects it and calls `GET /api/products/:id` to load its variants.
+  4. A variant dropdown appears; user selects a specific variant.
+- **Critical:** `GET /api/products/search` returns a **plain array** (not `{ items: [...] }`). Always use the `useSearchProducts` generated hook (which returns `data` as an array), not `customFetch` with `{ items }` wrapping.
+- Once a variant is chosen, the main report is fetched from `GET /api/reports/product-inquiry?variantId=...`.
+
+#### Customer Statement (كشف عميل)
+- Customer is selected from a dropdown populated via `GET /api/customers`.
+- **API constraint:** `pageSize` max is **100**. The hook must be called with `pageSize: 100` (not 500).
+- After customer selection, statement data is fetched from `GET /api/reports/customer-statement?customerId=...`.
+
+#### Account Statement (كشف حساب)
+- Account selected from dropdown loaded via `GET /api/reports/accounting-accounts`.
+- Statement fetched from `GET /api/reports/account-statement?accountId=...`.
+
 ---
+
 
 ## Module 13: Notifications
 

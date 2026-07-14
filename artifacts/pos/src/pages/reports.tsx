@@ -38,6 +38,8 @@ import {
   useListSuppliers,
   useListCustomers,
   useListEmployees,
+  useSearchProducts,
+  useGetProduct,
   customFetch,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
@@ -411,10 +413,11 @@ function InventoryReport() {
     <div>
       <div className="flex flex-wrap gap-3 mb-5">
         <SummaryStat label="إجمالي الكمية" value={String(d?.totalQuantity ?? 0)} />
-        <SummaryStat label="قيمة المخزون" value={money(d?.totalValue)} />
+        <SummaryStat label="إجمالي تكلفة الشراء" value={money(d?.totalPurchaseCost)} color="text-rose-600" />
+        <SummaryStat label="إجمالي قيمة البيع" value={money(d?.totalSalesValue)} color="text-emerald-700" />
       </div>
       <Table
-        headers={["المنتج", "النوع", "SKU", "المخزن", "الفئة", "الكمية", "التكلفة", "القيمة"]}
+        headers={["المنتج", "النوع", "SKU", "المخزن", "الفئة", "الكمية", "سعر التكلفة", "سعر البيع", "إجمالي تكلفة الشراء", "إجمالي قيمة البيع"]}
         loading={q.isLoading}
         empty={!d || d.rows.length === 0}
       >
@@ -426,8 +429,10 @@ function InventoryReport() {
             <td className="py-2 px-3">{r.warehouseName ?? "—"}</td>
             <td className="py-2 px-3">{r.categoryName ?? "—"}</td>
             <td className="py-2 px-3">{r.quantity}</td>
-            <td className="py-2 px-3">{money(r.cost)}</td>
-            <td className="py-2 px-3 font-bold">{money(r.value)}</td>
+            <td className="py-2 px-3 text-slate-600">{money(r.effectiveCost)}</td>
+            <td className="py-2 px-3 text-slate-600">{money(r.sellingPrice)}</td>
+            <td className="py-2 px-3 font-bold text-rose-600">{money(r.totalPurchaseCost)}</td>
+            <td className="py-2 px-3 font-bold text-emerald-700">{money(r.totalSalesValue)}</td>
           </tr>
         ))}
       </Table>
@@ -753,7 +758,7 @@ function SupplierOverviewReport() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(todayStr());
 
-  const suppliersQ = useListSuppliers({ page: 1, pageSize: 500, includeInactive: true });
+  const suppliersQ = useListSuppliers({ page: 1, pageSize: 100, includeInactive: true });
 
   const statementQ = useQuery({
     queryKey: ["/api/suppliers", supplierId, "statement"],
@@ -846,18 +851,32 @@ function SupplierOverviewReport() {
 
 function ProductInquiryReport() {
   const [variantId, setVariantId] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState("");
   const [search, setSearch] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(todayStr());
 
-  const productsQ = useQuery({
-    queryKey: ["/api/products/search-simple", search],
-    queryFn: () =>
-      customFetch<{
-        items: { id: string; variantId: string; name: string; sku: string; barcode: string; colorName: string | null; sizeName: string | null }[];
-      }>(`/api/products/search?q=${encodeURIComponent(search)}&limit=30`),
-    enabled: search.length > 1,
-  });
+  // Search products — the API returns a plain array (not {items:[]})
+  const productsQ = useSearchProducts(
+    { q: search, limit: 30 },
+    {
+      query: {
+        enabled: search.trim().length > 1,
+        queryKey: ["/api/products/search", search],
+      },
+    },
+  );
+
+  // Once a product is selected, load its variants
+  const productDetailQ = useGetProduct(
+    selectedProductId,
+    {
+      query: {
+        enabled: !!selectedProductId,
+        queryKey: ["/api/products", selectedProductId, "detail"],
+      },
+    },
+  );
 
   const inquiryQ = useQuery({
     queryKey: ["/api/reports/product-inquiry", variantId, from, to],
@@ -877,30 +896,71 @@ function ProductInquiryReport() {
   });
 
   const d = inquiryQ.data;
+  const searchResults = productsQ.data ?? [];
+  const variants = productDetailQ.data?.variants ?? [];
+
+  function handleProductSelect(productId: string) {
+    setSelectedProductId(productId);
+    setVariantId(""); // reset variant when product changes
+  }
 
   return (
     <div>
       <ReportHeader title="استعلام منتج" />
       <div className="flex flex-wrap items-end gap-3 mb-5">
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-bold text-slate-500 mb-1">بحث عن منتج</label>
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+        {/* Step 1: Search for a product */}
+        <div className="flex-1 min-w-[220px]">
+          <label className="block text-xs font-bold text-slate-500 mb-1">بحث عن منتج (الاسم / SKU / باركود)</label>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setSelectedProductId(""); setVariantId(""); }}
             placeholder="ابحث بالاسم أو الباركود أو SKU..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+          />
         </div>
-        {search.length > 1 && productsQ.data?.items && productsQ.data.items.length > 0 && (
+        {/* Autocomplete dropdown — products matching search */}
+        {search.trim().length > 1 && searchResults.length > 0 && !selectedProductId && (
+          <div className="w-full">
+            <label className="block text-xs font-bold text-slate-500 mb-1">اختر منتجاً</label>
+            <div className="border border-slate-200 rounded-lg bg-white shadow-md max-h-52 overflow-y-auto">
+              {searchResults.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => { handleProductSelect(p.id); setSearch(p.name); }}
+                  className="w-full text-right px-4 py-2 text-sm hover:bg-amber-50 border-b border-slate-100 last:border-0 flex items-center justify-between gap-2"
+                >
+                  <span className="font-bold text-slate-800">{p.name}</span>
+                  <span className="text-xs text-slate-400 font-mono">{p.barcode ?? ""}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {search.trim().length > 1 && productsQ.isLoading && (
+          <p className="text-xs text-slate-400">جاري البحث...</p>
+        )}
+        {/* Step 2: Pick a variant once product is selected */}
+        {selectedProductId && variants.length > 0 && (
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">اختر المتغير</label>
-            <select value={variantId} onChange={(e) => setVariantId(e.target.value)}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[200px]">
+            <label className="block text-xs font-bold text-slate-500 mb-1">اختر المتغير (مقاس / لون)</label>
+            <select
+              value={variantId}
+              onChange={(e) => setVariantId(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[220px]"
+            >
               <option value="">اختر...</option>
-              {productsQ.data.items.map((p) => (
-                <option key={p.variantId ?? p.id} value={p.variantId ?? p.id}>
-                  {p.name}{p.colorName ? ` — ${p.colorName}` : ""}{p.sizeName ? ` / ${p.sizeName}` : ""}
+              {variants.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.colorName ?? ""}{v.sizeName ? ` / ${v.sizeName}` : ""} — {v.sku}
                 </option>
               ))}
             </select>
           </div>
+        )}
+        {selectedProductId && productDetailQ.isLoading && (
+          <p className="text-xs text-slate-400">جاري تحميل المتغيرات...</p>
         )}
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-1">من تاريخ</label>
@@ -911,7 +971,7 @@ function ProductInquiryReport() {
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
         </div>
       </div>
-      {!variantId && <p className="text-slate-400 text-sm py-8 text-center">ابحث عن منتج واختره لعرض تفاصيله.</p>}
+      {!variantId && <p className="text-slate-400 text-sm py-8 text-center">ابحث عن منتج واختر متغيراً لعرض تفاصيله.</p>}
       {variantId && d && (
         <>
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -981,7 +1041,7 @@ function CustomerStatementReport() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(todayStr());
 
-  const customersQ = useListCustomers({ page: 1, pageSize: 500, includeInactive: true });
+  const customersQ = useListCustomers({ page: 1, pageSize: 100, includeInactive: true });
 
   const statementQ = useQuery({
     queryKey: ["/api/reports/customer-statement", customerId, from, to],

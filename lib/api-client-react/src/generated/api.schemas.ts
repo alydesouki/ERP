@@ -1404,14 +1404,29 @@ export interface InventoryStockRow {
   brandName?: string | null;
   quantity: number;
   reorderPoint?: number;
-  cost?: string;
+  /** Variant-level cost override (may be null if inheriting product base cost) */
+  cost?: string | null;
+  /** Effective cost per unit: variant.costPrice ?? product.baseCostPrice */
+  effectiveCost?: string;
+  /** Effective selling price per unit: variant.sellingPrice ?? product.basePrice */
+  sellingPrice?: string;
+  /** qty × effectiveCost (total purchase cost value at current stock) */
+  totalPurchaseCost?: number;
+  /** qty × effectiveSellingPrice (total sales value at current stock) */
+  totalSalesValue?: number;
+  /** @deprecated use totalPurchaseCost instead; kept for backward-compat */
   value: number;
 }
 
 export interface InventoryStockReport {
   rows: InventoryStockRow[];
+  /** Total stock value at cost (sum of qty × effective cost price per variant) */
   totalValue: number;
   totalQuantity: number;
+  /** Sum of (qty × effective cost price) across all variants = inventory book value */
+  totalPurchaseCost: number;
+  /** Sum of (qty × effective selling price) across all variants = potential sales revenue */
+  totalSalesValue: number;
 }
 
 export interface LowStockRow {

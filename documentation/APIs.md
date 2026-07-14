@@ -115,6 +115,7 @@ Manages `categories`, `brands`, `colors`, `sizes`.
 - SKU auto-generated as `{productName}-{colorName}-{sizeName}` (normalized)
 - Barcode auto-generated as EAN-13 format
 - Variants store price/cost as override (NULL = inherit product base)
+- **`GET /products/search` returns a plain array** (`SearchProductsResponseItem[]`), NOT `{ items: [...] }`. Always use the generated `useSearchProducts` hook which correctly types `data` as an array.
 
 ---
 
@@ -213,6 +214,10 @@ This ensures the supplier statement shows all invoices regardless of payment met
 | GET | `/customers/:id/statement` | `customers.view` | Transaction ledger |
 | POST | `/customers/:id/payments` | `customers.edit` | Record customer payment (reduces balance) |
 
+**Customer List (`GET /customers`) pagination:**
+- `pageSize` maximum is **100** (enforced by Zod validation — requests with `pageSize > 100` receive a 400 error).
+- For dropdowns requiring all customers, always use `pageSize: 100`.
+
 ---
 
 ## Suppliers (`/suppliers`)
@@ -222,6 +227,10 @@ This ensures the supplier statement shows all invoices regardless of payment met
 | GET/POST/PATCH/DELETE `/suppliers` | CRUD |
 | GET `/suppliers/:id/statement` | Full ledger with invoice numbers |
 | POST `/suppliers/:id/payments` | Record supplier payment |
+
+**Supplier List (`GET /suppliers`) pagination:**
+- `pageSize` maximum is **100** (enforced by Zod validation — requests with `pageSize > 100` receive a 400 error).
+- For dropdowns requiring all suppliers, always use `pageSize: 100`.
 
 **Supplier Statement (`GET /suppliers/:id/statement`) response:**
 - Returns `{ supplier, items: SupplierTransaction[], total, page, pageSize }`
@@ -299,7 +308,7 @@ This ensures the supplier statement shows all invoices regardless of payment met
 |---|---|---|
 | GET `/reports/sales-summary` | `reports.sales` | Invoice list with totals, filterable |
 | GET `/reports/purchases-summary` | `reports.view` | Purchase list with totals |
-| GET `/reports/inventory-stock` | `reports.inventory` | Stock valuation per variant |
+| GET `/reports/inventory-stock` | `reports.inventory` | Stock valuation per variant — includes cost price, selling price, total purchase cost, and total sales value per row |
 | GET `/reports/low-stock` | `reports.inventory` | Items at or below reorder point |
 | GET `/reports/profit-loss` | `reports.view` | P&L: revenue, returns, COGS, expenses, salaries, net profit |
 | GET `/reports/treasury` | `reports.view` | Treasury movements with IN/OUT totals |
@@ -312,6 +321,33 @@ This ensures the supplier statement shows all invoices regardless of payment met
 | GET `/reports/daily-sales` | `reports.sales` | Revenue/cost/profit grouped by day. Params: `fromDate`, `toDate` |
 | GET `/reports/salary-summary` | `reports.view` | Salary records with totals. Params: `employeeId` (optional), `fromDate`, `toDate` |
 | GET `/reports/supplier-aging` | `reports.view` | Outstanding supplier payables bucketed: 0-30, 30-60, 60-90, 90+ days |
+
+### `GET /reports/inventory-stock` response schema
+
+Each row in `rows[]` contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `variantId` | string | Variant UUID |
+| `productName` | string | Product name |
+| `sku` | string \| null | SKU |
+| `variantLabel` | string \| null | Color/size label |
+| `warehouseName` | string \| null | Warehouse |
+| `categoryName` | string \| null | Category |
+| `brandName` | string \| null | Brand |
+| `quantity` | number | Current stock quantity |
+| `cost` | string \| null | Raw variant-level cost override (NULL if inheriting) |
+| `effectiveCost` | string | Effective cost = `COALESCE(variant.costPrice, product.baseCostPrice)` |
+| `sellingPrice` | string | Effective selling price = `COALESCE(variant.sellingPrice, product.basePrice)` |
+| `totalPurchaseCost` | number | `quantity × effectiveCost` |
+| `totalSalesValue` | number | `quantity × sellingPrice` |
+| `value` | number | Legacy alias for `totalPurchaseCost` (backward compat) |
+
+Top-level response also includes:
+- `totalQuantity` — sum of all quantities
+- `totalPurchaseCost` — sum of all `totalPurchaseCost` rows
+- `totalSalesValue` — sum of all `totalSalesValue` rows
+- `totalValue` — alias for `totalPurchaseCost` (backward compat)
 
 ---
 

@@ -166,7 +166,17 @@ router.get(
         brandName: brandsTable.name,
         quantity: inventoryItemsTable.quantity,
         reorderPoint: productsTable.reorderPoint,
+        // Variant-level cost override; use base if null
         cost: productVariantsTable.costPrice,
+        // Effective cost per unit (variant override or product base)
+        effectiveCost: sql<string>`COALESCE(${productVariantsTable.costPrice}, ${productsTable.baseCostPrice})`,
+        // Effective selling price per unit (variant override or product base)
+        sellingPrice: sql<string>`COALESCE(${productVariantsTable.sellingPrice}, ${productsTable.basePrice})`,
+        // Total purchase cost = qty × effective cost
+        totalPurchaseCost: sql<number>`CAST(${inventoryItemsTable.quantity} * CAST(COALESCE(${productVariantsTable.costPrice}, ${productsTable.baseCostPrice}) AS REAL) AS REAL)`,
+        // Total sales value = qty × effective selling price
+        totalSalesValue: sql<number>`CAST(${inventoryItemsTable.quantity} * CAST(COALESCE(${productVariantsTable.sellingPrice}, ${productsTable.basePrice}) AS REAL) AS REAL)`,
+        // Legacy field (kept for backward-compat; identical to totalPurchaseCost)
         value: sql<number>`CAST(${inventoryItemsTable.quantity} * CAST(${productVariantsTable.costPrice} AS REAL) AS REAL)`,
       })
       .from(inventoryItemsTable)
@@ -180,9 +190,11 @@ router.get(
       .where(and(...conditions))
       .orderBy(productsTable.name);
 
-    const totalValue = rows.reduce((s, r) => s + Number(r.value ?? 0), 0);
+    const totalValue = rows.reduce((s, r) => s + Number(r.totalPurchaseCost ?? 0), 0);
     const totalQuantity = rows.reduce((s, r) => s + (r.quantity ?? 0), 0);
-    res.json({ rows, totalValue, totalQuantity });
+    const totalPurchaseCost = rows.reduce((s, r) => s + Number(r.totalPurchaseCost ?? 0), 0);
+    const totalSalesValue = rows.reduce((s, r) => s + Number(r.totalSalesValue ?? 0), 0);
+    res.json({ rows, totalValue, totalQuantity, totalPurchaseCost, totalSalesValue });
   },
 );
 
