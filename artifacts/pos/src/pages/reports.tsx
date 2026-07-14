@@ -9,6 +9,14 @@ import {
   Wallet,
   TrendingDown,
   Trophy,
+  BookOpen,
+  Search,
+  Users,
+  Truck,
+  CalendarDays,
+  Banknote,
+  Clock,
+  Printer,
 } from "lucide-react";
 import {
   useGetSalesSummaryReport,
@@ -27,7 +35,12 @@ import {
   getGetExpenseReportQueryKey,
   useGetTopProductsReport,
   getGetTopProductsReportQueryKey,
+  useListSuppliers,
+  useListCustomers,
+  useListEmployees,
+  customFetch,
 } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
 
@@ -49,6 +62,14 @@ function monthAgoStr(): string {
   return d.toISOString().slice(0, 10);
 }
 
+function yearStartStr(): string {
+  return `${new Date().getFullYear()}-01-01`;
+}
+
+function handlePrint() {
+  window.print();
+}
+
 type ReportTab =
   | "sales"
   | "purchases"
@@ -57,7 +78,14 @@ type ReportTab =
   | "profit-loss"
   | "treasury"
   | "expenses"
-  | "top-products";
+  | "top-products"
+  | "account-statement"
+  | "supplier-overview"
+  | "product-inquiry"
+  | "customer-statement"
+  | "daily-sales"
+  | "salary-summary"
+  | "supplier-aging";
 
 interface TabDef {
   key: ReportTab;
@@ -69,12 +97,20 @@ interface TabDef {
 const TABS: TabDef[] = [
   { key: "sales", label: "ملخص المبيعات", icon: <ShoppingCart size={18} />, permission: "reports.sales" },
   { key: "top-products", label: "الأكثر مبيعاً", icon: <Trophy size={18} />, permission: "reports.sales" },
+  { key: "daily-sales", label: "المبيعات اليومية", icon: <CalendarDays size={18} />, permission: "reports.sales" },
   { key: "purchases", label: "ملخص المشتريات", icon: <ShoppingBag size={18} />, permission: "reports.view" },
   { key: "inventory", label: "تقييم المخزون", icon: <Boxes size={18} />, permission: "reports.inventory" },
   { key: "low-stock", label: "نواقص المخزون", icon: <AlertTriangle size={18} />, permission: "reports.inventory" },
   { key: "profit-loss", label: "الأرباح والخسائر", icon: <Scale size={18} />, permission: "reports.view" },
   { key: "treasury", label: "حركة الخزينة", icon: <Wallet size={18} />, permission: "reports.view" },
   { key: "expenses", label: "المصروفات", icon: <TrendingDown size={18} />, permission: "reports.view" },
+  // New tabs
+  { key: "account-statement", label: "كشف حساب", icon: <BookOpen size={18} />, permission: "reports.view" },
+  { key: "supplier-overview", label: "نظرة مورد", icon: <Truck size={18} />, permission: "reports.view" },
+  { key: "product-inquiry", label: "استعلام منتج", icon: <Search size={18} />, permission: "reports.inventory" },
+  { key: "customer-statement", label: "كشف عميل", icon: <Users size={18} />, permission: "reports.view" },
+  { key: "salary-summary", label: "ملخص الرواتب", icon: <Banknote size={18} />, permission: "reports.view" },
+  { key: "supplier-aging", label: "تقادم الموردين", icon: <Clock size={18} />, permission: "reports.view" },
 ];
 
 export function ReportsPage() {
@@ -85,9 +121,9 @@ export function ReportsPage() {
   );
 
   return (
-    <div className="flex-1 overflow-auto p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+    <div className="flex-1 overflow-auto p-6 lg:p-8 print:p-0">
+      <div className="max-w-7xl mx-auto space-y-6 print:space-y-2">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3 print:hidden">
           <FileBarChart className="text-amber-500" size={28} />
           <div>
             <h2 className="text-2xl font-bold text-slate-800">التقارير</h2>
@@ -97,7 +133,7 @@ export function ReportsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 print:hidden">
           {visibleTabs.map((tab) => (
             <button
               key={tab.key}
@@ -115,19 +151,74 @@ export function ReportsPage() {
           ))}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 print:shadow-none print:border-0 print:p-0">
           {active === "sales" && <SalesReport />}
           {active === "top-products" && <TopProductsReport />}
+          {active === "daily-sales" && <DailySalesReport />}
           {active === "purchases" && <PurchasesReport />}
           {active === "inventory" && <InventoryReport />}
           {active === "low-stock" && <LowStockReport />}
           {active === "profit-loss" && <ProfitLossReport />}
           {active === "treasury" && <TreasuryReport />}
           {active === "expenses" && <ExpensesReport />}
+          {active === "account-statement" && <AccountStatementReport />}
+          {active === "supplier-overview" && <SupplierOverviewReport />}
+          {active === "product-inquiry" && <ProductInquiryReport />}
+          {active === "customer-statement" && <CustomerStatementReport />}
+          {active === "salary-summary" && <SalarySummaryReport />}
+          {active === "supplier-aging" && <SupplierAgingReport />}
         </div>
       </div>
     </div>
   );
+}
+// Helper Components
+function PrintButton() {
+  return (
+    <button
+      onClick={handlePrint}
+      className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition-colors print:hidden"
+    >
+      <Printer size={16} />
+      طباعة
+    </button>
+  );
+}
+
+function ReportHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between mb-5">
+      <h3 className="text-lg font-black text-slate-800">{title}</h3>
+      <div className="flex gap-2 print:hidden">{children}<PrintButton /></div>
+    </div>
+  );
+}
+
+function movementTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    SALE: "مبيعة",
+    SALE_RETURN: "مرتجع مبيعة",
+    PURCHASE: "شراء",
+    PURCHASE_RETURN: "مرتجع شراء",
+    ADJUSTMENT_IN: "تسوية إضافة",
+    ADJUSTMENT_OUT: "تسوية خصم",
+    TRANSFER_IN: "تحويل وارد",
+    TRANSFER_OUT: "تحويل صادر",
+    STOCK_COUNT_CORRECTION: "تصحيح جرد",
+  };
+  return map[type] ?? type;
+}
+
+function txTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    INVOICE: "فاتورة",
+    PAYMENT: "دفعة",
+    RETURN: "مرتجع",
+    OPENING_BALANCE: "رصيد افتتاحي",
+    ADJUSTMENT: "تسوية",
+    PURCHASE: "مشترى",
+  };
+  return map[type] ?? type;
 }
 
 function DateRange({
@@ -135,8 +226,7 @@ function DateRange({
   to,
   setFrom,
   setTo,
-}: {
-  from: string;
+}: {  from: string;
   to: string;
   setFrom: (v: string) => void;
   setTo: (v: string) => void;
@@ -167,11 +257,11 @@ function DateRange({
   );
 }
 
-function SummaryStat({ label, value }: { label: string; value: string }) {
+function SummaryStat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="bg-slate-50 rounded-xl px-5 py-3 border border-slate-100">
       <p className="text-xs text-slate-500 font-semibold">{label}</p>
-      <p className="text-lg font-black text-slate-800">{value}</p>
+      <p className={`text-lg font-black ${color ?? "text-slate-800"}`}>{value}</p>
     </div>
   );
 }
@@ -503,6 +593,604 @@ function ExpensesReport() {
             <td className="py-2 px-3 font-bold">{money(r.amount)}</td>
           </tr>
         ))}
+      </Table>
+    </div>
+  );
+}
+
+// ── New Report: Daily Sales ───────────────────────────────────────────────────
+
+function DailySalesReport() {
+  const [from, setFrom] = useState(monthAgoStr());
+  const [to, setTo] = useState(todayStr());
+
+  const q = useQuery({
+    queryKey: ["/api/reports/daily-sales", from, to],
+    queryFn: () =>
+      customFetch<{
+        rows: { day: string; invoiceCount: number; totalRevenue: number; totalCost: number; avgSale: number }[];
+        grandTotal: number;
+        grandCost: number;
+        grandProfit: number;
+        dayCount: number;
+      }>(`/api/reports/daily-sales?fromDate=${from}&toDate=${to}`),
+  });
+
+  const d = q.data;
+
+  return (
+    <div>
+      <ReportHeader title="المبيعات اليومية" />
+      <DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} />
+      <div className="flex flex-wrap gap-3 mb-5">
+        <SummaryStat label="عدد الأيام" value={String(d?.dayCount ?? 0)} />
+        <SummaryStat label="إجمالي الإيراد" value={money(d?.grandTotal)} color="text-emerald-700" />
+        <SummaryStat label="إجمالي التكلفة" value={money(d?.grandCost)} color="text-rose-600" />
+        <SummaryStat label="إجمالي الربح" value={money(d?.grandProfit)} color="text-amber-600" />
+      </div>
+      <Table
+        headers={["اليوم", "عدد الفواتير", "الإيراد", "التكلفة", "الربح", "متوسط الفاتورة"]}
+        loading={q.isLoading}
+        empty={!d || d.rows.length === 0}
+      >
+        {d?.rows.map((r) => {
+          const profit = Number(r.totalRevenue) - Number(r.totalCost);
+          return (
+            <tr key={r.day} className="text-slate-700">
+              <td className="py-2 px-3 font-bold">{r.day}</td>
+              <td className="py-2 px-3">{r.invoiceCount}</td>
+              <td className="py-2 px-3 text-emerald-700 font-bold">{money(r.totalRevenue)}</td>
+              <td className="py-2 px-3 text-rose-600">{money(r.totalCost)}</td>
+              <td className={`py-2 px-3 font-bold ${profit >= 0 ? "text-amber-600" : "text-rose-600"}`}>
+                {money(profit)}
+              </td>
+              <td className="py-2 px-3">{money(r.avgSale)}</td>
+            </tr>
+          );
+        })}
+      </Table>
+    </div>
+  );
+}
+
+// ── New Report: Account Statement ─────────────────────────────────────────────
+
+function AccountStatementReport() {
+  const [accountId, setAccountId] = useState("");
+  const [from, setFrom] = useState(yearStartStr());
+  const [to, setTo] = useState(todayStr());
+
+  const accountsQ = useQuery({
+    queryKey: ["/api/reports/accounting-accounts"],
+    queryFn: () =>
+      customFetch<{
+        rows: { id: string; code: string; name: string; type: string; normalBalance: string }[];
+      }>("/api/reports/accounting-accounts"),
+  });
+
+  const statementQ = useQuery({
+    queryKey: ["/api/reports/account-statement", accountId, from, to],
+    queryFn: () =>
+      customFetch<{
+        account: { id: string; code: string; name: string; type: string; normalBalance: string };
+        rows: {
+          id: string; entryDate: string; referenceType: string | null;
+          referenceId: string | null; description: string | null;
+          debit: string; credit: string; runningBalance: number;
+        }[];
+        totalDebit: number; totalCredit: number; currentBalance: number; count: number;
+      }>(`/api/reports/account-statement?accountId=${accountId}&fromDate=${from}&toDate=${to}`),
+    enabled: !!accountId,
+  });
+
+  const d = statementQ.data;
+
+  return (
+    <div>
+      <ReportHeader title="كشف حساب محاسبي" />
+      <div className="flex flex-wrap items-end gap-3 mb-5">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">الحساب</label>
+          <select
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[220px]"
+          >
+            <option value="">اختر حساباً...</option>
+            {accountsQ.data?.rows.map((a) => (
+              <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+            ))}
+          </select>
+        </div>
+        <DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} />
+      </div>
+      {!accountId && <p className="text-slate-400 text-sm py-8 text-center">يرجى اختيار حساب لعرض الكشف.</p>}
+      {accountId && d && (
+        <>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 flex flex-wrap gap-6">
+            <div>
+              <p className="text-xs font-bold text-amber-600">الحساب</p>
+              <p className="font-black text-slate-800">{d.account.code} — {d.account.name}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-600">نوع الحساب</p>
+              <p className="font-bold text-slate-700">{d.account.type}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3 mb-5">
+            <SummaryStat label="إجمالي المدين" value={money(d.totalDebit)} color="text-rose-600" />
+            <SummaryStat label="إجمالي الدائن" value={money(d.totalCredit)} color="text-emerald-700" />
+            <SummaryStat label="الرصيد الحالي" value={money(d.currentBalance)} color="text-amber-600" />
+            <SummaryStat label="عدد القيود" value={String(d.count)} />
+          </div>
+          <Table
+            headers={["التاريخ", "المرجع", "الوصف", "مدين", "دائن", "الرصيد"]}
+            loading={statementQ.isLoading}
+            empty={d.rows.length === 0}
+          >
+            {d.rows.map((r) => (
+              <tr key={r.id} className="text-slate-700">
+                <td className="py-2 px-3 whitespace-nowrap">{formatDateTime(r.entryDate)}</td>
+                <td className="py-2 px-3 text-xs font-mono">{r.referenceType ?? "—"}</td>
+                <td className="py-2 px-3">{r.description ?? "—"}</td>
+                <td className="py-2 px-3 text-rose-600 font-bold">{Number(r.debit) > 0 ? money(r.debit) : "—"}</td>
+                <td className="py-2 px-3 text-emerald-700 font-bold">{Number(r.credit) > 0 ? money(r.credit) : "—"}</td>
+                <td className="py-2 px-3 font-black text-amber-700">{money(r.runningBalance)}</td>
+              </tr>
+            ))}
+          </Table>
+        </>
+      )}
+      {accountId && statementQ.isLoading && <p className="text-slate-400 text-sm py-8 text-center">جارٍ التحميل...</p>}
+    </div>
+  );
+}
+
+// ── New Report: Supplier Overview ─────────────────────────────────────────────
+
+function SupplierOverviewReport() {
+  const [supplierId, setSupplierId] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState(todayStr());
+
+  const suppliersQ = useListSuppliers({ page: 1, pageSize: 500, includeInactive: true });
+
+  const statementQ = useQuery({
+    queryKey: ["/api/suppliers", supplierId, "statement"],
+    queryFn: () =>
+      customFetch<{
+        supplier: { id: string; name: string; phone: string; address: string | null; taxNumber: string | null; currentBalance: string };
+        items: { id: string; type: string; debit: string; credit: string; balanceAfter: string; referenceType: string | null; referenceId: string | null; description: string | null; createdAt: string; invoiceNumber: string | null }[];
+        total: number;
+      }>(`/api/suppliers/${supplierId}/statement`),
+    enabled: !!supplierId,
+  });
+
+  const d = statementQ.data;
+
+  const filteredItems = d?.items.filter((item) => {
+    if (from && item.createdAt < from) return false;
+    if (to && item.createdAt > to + "T23:59:59") return false;
+    return true;
+  }) ?? [];
+
+  let totalDebit = 0, totalCredit = 0;
+  for (const r of filteredItems) { totalDebit += Number(r.debit ?? 0); totalCredit += Number(r.credit ?? 0); }
+
+  return (
+    <div>
+      <ReportHeader title="نظرة عامة على مورد" />
+      <div className="flex flex-wrap items-end gap-3 mb-5">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">المورد</label>
+          <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[220px]">
+            <option value="">اختر مورداً...</option>
+            {suppliersQ.data?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">من تاريخ</label>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">إلى تاريخ</label>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      {!supplierId && <p className="text-slate-400 text-sm py-8 text-center">يرجى اختيار مورد لعرض البيانات.</p>}
+      {supplierId && d && (
+        <>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div><p className="text-xs font-bold text-amber-600">المورد</p><p className="font-black text-slate-800">{d.supplier.name}</p></div>
+            <div><p className="text-xs font-bold text-amber-600">الهاتف</p><p className="font-bold text-slate-700">{d.supplier.phone || "—"}</p></div>
+            <div>
+              <p className="text-xs font-bold text-amber-600">الرصيد الحالي</p>
+              <p className={`font-black text-lg ${Number(d.supplier.currentBalance) > 0 ? "text-rose-600" : "text-emerald-700"}`}>{money(d.supplier.currentBalance)}</p>
+            </div>
+            <div><p className="text-xs font-bold text-amber-600">العنوان</p><p className="font-bold text-slate-700">{d.supplier.address || "—"}</p></div>
+          </div>
+          <div className="flex flex-wrap gap-3 mb-5">
+            <SummaryStat label="إجمالي المشتريات" value={money(totalDebit)} color="text-rose-600" />
+            <SummaryStat label="إجمالي المدفوعات" value={money(totalCredit)} color="text-emerald-700" />
+            <SummaryStat label="عدد المعاملات" value={String(filteredItems.length)} />
+          </div>
+          <Table
+            headers={["التاريخ", "النوع", "رقم الفاتورة", "الوصف", "مدين", "دائن", "الرصيد بعد"]}
+            loading={statementQ.isLoading}
+            empty={filteredItems.length === 0}
+          >
+            {filteredItems.map((r) => (
+              <tr key={r.id} className="text-slate-700">
+                <td className="py-2 px-3 whitespace-nowrap">{formatDateTime(r.createdAt)}</td>
+                <td className="py-2 px-3">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${r.type === "PURCHASE" ? "bg-rose-100 text-rose-700" : r.type === "PAYMENT" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                    {txTypeLabel(r.type)}
+                  </span>
+                </td>
+                <td className="py-2 px-3 font-mono text-xs">{r.invoiceNumber ?? "—"}</td>
+                <td className="py-2 px-3">{r.description ?? "—"}</td>
+                <td className="py-2 px-3 text-rose-600 font-bold">{Number(r.debit) > 0 ? money(r.debit) : "—"}</td>
+                <td className="py-2 px-3 text-emerald-700 font-bold">{Number(r.credit) > 0 ? money(r.credit) : "—"}</td>
+                <td className="py-2 px-3 font-black text-amber-700">{money(r.balanceAfter)}</td>
+              </tr>
+            ))}
+          </Table>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── New Report: Product Inquiry ───────────────────────────────────────────────
+
+function ProductInquiryReport() {
+  const [variantId, setVariantId] = useState("");
+  const [search, setSearch] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState(todayStr());
+
+  const productsQ = useQuery({
+    queryKey: ["/api/products/search-simple", search],
+    queryFn: () =>
+      customFetch<{
+        items: { id: string; variantId: string; name: string; sku: string; barcode: string; colorName: string | null; sizeName: string | null }[];
+      }>(`/api/products/search?q=${encodeURIComponent(search)}&limit=30`),
+    enabled: search.length > 1,
+  });
+
+  const inquiryQ = useQuery({
+    queryKey: ["/api/reports/product-inquiry", variantId, from, to],
+    queryFn: () =>
+      customFetch<{
+        variant: {
+          variantId: string; sku: string; barcode: string; productName: string;
+          categoryName: string | null; brandName: string | null; colorName: string | null; sizeName: string | null;
+          effectiveSellingPrice: string | null; effectiveCostPrice: string | null; reorderPoint: number | null;
+        };
+        stockByWarehouse: { warehouseName: string | null; quantity: number }[];
+        totalStock: number;
+        movements: { id: string; type: string; quantityChange: number; balanceAfter: number; referenceType: string | null; notes: string | null; warehouseName: string | null; createdAt: string }[];
+        movementCount: number;
+      }>(`/api/reports/product-inquiry?variantId=${variantId}&fromDate=${from}&toDate=${to}`),
+    enabled: !!variantId,
+  });
+
+  const d = inquiryQ.data;
+
+  return (
+    <div>
+      <ReportHeader title="استعلام منتج" />
+      <div className="flex flex-wrap items-end gap-3 mb-5">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-bold text-slate-500 mb-1">بحث عن منتج</label>
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="ابحث بالاسم أو الباركود أو SKU..."
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        {search.length > 1 && productsQ.data?.items && productsQ.data.items.length > 0 && (
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">اختر المتغير</label>
+            <select value={variantId} onChange={(e) => setVariantId(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[200px]">
+              <option value="">اختر...</option>
+              {productsQ.data.items.map((p) => (
+                <option key={p.variantId ?? p.id} value={p.variantId ?? p.id}>
+                  {p.name}{p.colorName ? ` — ${p.colorName}` : ""}{p.sizeName ? ` / ${p.sizeName}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">من تاريخ</label>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">إلى تاريخ</label>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      {!variantId && <p className="text-slate-400 text-sm py-8 text-center">ابحث عن منتج واختره لعرض تفاصيله.</p>}
+      {variantId && d && (
+        <>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs font-bold text-amber-600">المنتج</p>
+              <p className="font-black text-slate-800">{d.variant.productName}</p>
+              {(d.variant.colorName || d.variant.sizeName) && (
+                <p className="text-sm text-slate-600">{d.variant.colorName} / {d.variant.sizeName}</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-600">SKU / باركود</p>
+              <p className="font-mono text-sm text-slate-700">{d.variant.sku}</p>
+              <p className="font-mono text-xs text-slate-500">{d.variant.barcode}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-600">سعر البيع</p>
+              <p className="font-black text-emerald-700">{money(d.variant.effectiveSellingPrice)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-600">سعر التكلفة</p>
+              <p className="font-black text-slate-700">{money(d.variant.effectiveCostPrice)}</p>
+            </div>
+          </div>
+          <div className="mb-5">
+            <h4 className="font-bold text-slate-700 mb-2 text-sm">المخزون الحالي</h4>
+            <div className="flex flex-wrap gap-3">
+              <SummaryStat label="إجمالي المخزون" value={String(d.totalStock)} />
+              {d.stockByWarehouse.map((s, i) => (
+                <SummaryStat key={i} label={s.warehouseName ?? "مخزن"} value={String(s.quantity)} />
+              ))}
+            </div>
+          </div>
+          <h4 className="font-bold text-slate-700 mb-2 text-sm">تاريخ الحركات ({d.movementCount})</h4>
+          <Table
+            headers={["التاريخ", "نوع الحركة", "المخزن", "التغيير", "الرصيد بعد", "ملاحظات"]}
+            loading={inquiryQ.isLoading}
+            empty={d.movements.length === 0}
+          >
+            {d.movements.map((m) => (
+              <tr key={m.id} className="text-slate-700">
+                <td className="py-2 px-3 whitespace-nowrap">{formatDateTime(m.createdAt)}</td>
+                <td className="py-2 px-3">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${m.quantityChange > 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                    {movementTypeLabel(m.type)}
+                  </span>
+                </td>
+                <td className="py-2 px-3">{m.warehouseName ?? "—"}</td>
+                <td className={`py-2 px-3 font-bold ${m.quantityChange > 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                  {m.quantityChange > 0 ? "+" : ""}{m.quantityChange}
+                </td>
+                <td className="py-2 px-3 font-bold">{m.balanceAfter}</td>
+                <td className="py-2 px-3 text-xs">{m.notes ?? "—"}</td>
+              </tr>
+            ))}
+          </Table>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── New Report: Customer Statement ────────────────────────────────────────────
+
+function CustomerStatementReport() {
+  const [customerId, setCustomerId] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState(todayStr());
+
+  const customersQ = useListCustomers({ page: 1, pageSize: 500, includeInactive: true });
+
+  const statementQ = useQuery({
+    queryKey: ["/api/reports/customer-statement", customerId, from, to],
+    queryFn: () =>
+      customFetch<{
+        customer: { id: string; name: string; phone: string; address: string | null; creditLimit: string; currentBalance: string };
+        rows: { id: string; type: string; debit: string; credit: string; balanceAfter: string; referenceType: string | null; description: string | null; createdAt: string; invoiceNumber: string | null }[];
+        totalDebit: number; totalCredit: number; count: number;
+      }>(`/api/reports/customer-statement?customerId=${customerId}&fromDate=${from}&toDate=${to}`),
+    enabled: !!customerId,
+  });
+
+  const d = statementQ.data;
+
+  return (
+    <div>
+      <ReportHeader title="كشف حساب عميل" />
+      <div className="flex flex-wrap items-end gap-3 mb-5">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">العميل</label>
+          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[220px]">
+            <option value="">اختر عميلاً...</option>
+            {customersQ.data?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">من تاريخ</label>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">إلى تاريخ</label>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      {!customerId && <p className="text-slate-400 text-sm py-8 text-center">يرجى اختيار عميل لعرض الكشف.</p>}
+      {customerId && d && (
+        <>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div><p className="text-xs font-bold text-amber-600">العميل</p><p className="font-black text-slate-800">{d.customer.name}</p></div>
+            <div><p className="text-xs font-bold text-amber-600">الهاتف</p><p className="font-bold text-slate-700">{d.customer.phone || "—"}</p></div>
+            <div>
+              <p className="text-xs font-bold text-amber-600">الرصيد الحالي</p>
+              <p className={`font-black text-lg ${Number(d.customer.currentBalance) > 0 ? "text-rose-600" : "text-emerald-700"}`}>{money(d.customer.currentBalance)}</p>
+            </div>
+            <div><p className="text-xs font-bold text-amber-600">حد الائتمان</p><p className="font-bold text-slate-700">{money(d.customer.creditLimit)}</p></div>
+          </div>
+          <div className="flex flex-wrap gap-3 mb-5">
+            <SummaryStat label="إجمالي الفواتير (مدين)" value={money(d.totalDebit)} color="text-rose-600" />
+            <SummaryStat label="إجمالي المدفوعات (دائن)" value={money(d.totalCredit)} color="text-emerald-700" />
+            <SummaryStat label="عدد المعاملات" value={String(d.count)} />
+          </div>
+          <Table
+            headers={["التاريخ", "النوع", "رقم الفاتورة", "الوصف", "مدين", "دائن", "الرصيد بعد"]}
+            loading={statementQ.isLoading}
+            empty={d.rows.length === 0}
+          >
+            {d.rows.map((r) => (
+              <tr key={r.id} className="text-slate-700">
+                <td className="py-2 px-3 whitespace-nowrap">{formatDateTime(r.createdAt)}</td>
+                <td className="py-2 px-3">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${r.type === "INVOICE" ? "bg-rose-100 text-rose-700" : r.type === "PAYMENT" ? "bg-emerald-100 text-emerald-700" : r.type === "RETURN" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                    {txTypeLabel(r.type)}
+                  </span>
+                </td>
+                <td className="py-2 px-3 font-mono text-xs">{r.invoiceNumber ?? "—"}</td>
+                <td className="py-2 px-3">{r.description ?? "—"}</td>
+                <td className="py-2 px-3 text-rose-600 font-bold">{Number(r.debit) > 0 ? money(r.debit) : "—"}</td>
+                <td className="py-2 px-3 text-emerald-700 font-bold">{Number(r.credit) > 0 ? money(r.credit) : "—"}</td>
+                <td className="py-2 px-3 font-black text-amber-700">{money(r.balanceAfter)}</td>
+              </tr>
+            ))}
+          </Table>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── New Report: Salary Summary ────────────────────────────────────────────────
+
+function SalarySummaryReport() {
+  const [employeeId, setEmployeeId] = useState("");
+  const [from, setFrom] = useState(yearStartStr());
+  const [to, setTo] = useState(todayStr());
+
+  const employeesQ = useListEmployees();
+
+  const q = useQuery({
+    queryKey: ["/api/reports/salary-summary", employeeId, from, to],
+    queryFn: () =>
+      customFetch<{
+        rows: {
+          id: string; employeeName: string; jobTitle: string | null; periodMonth: string;
+          payPeriodType: string; baseSalary: string; bonuses: string; advanceDeduction: string;
+          otherDeductions: string; netAmount: string; status: string; paidAt: string | null; treasuryName: string | null;
+        }[];
+        totalNet: number; totalBase: number; totalBonuses: number; totalDeductions: number;
+        paidCount: number; pendingCount: number; count: number;
+      }>(`/api/reports/salary-summary?employeeId=${employeeId}&fromDate=${from}&toDate=${to}`),
+  });
+
+  const d = q.data;
+  const periodLabel: Record<string, string> = { MONTHLY: "شهري", WEEKLY: "أسبوعي", DAILY: "يومي" };
+  const statusLabel: Record<string, string> = { PAID: "مدفوع", PENDING: "معلق" };
+
+  return (
+    <div>
+      <ReportHeader title="ملخص الرواتب" />
+      <div className="flex flex-wrap items-end gap-3 mb-5">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">الموظف (اختياري)</label>
+          <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[220px]">
+            <option value="">جميع الموظفين</option>
+            {(employeesQ.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+        </div>
+        <DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} />
+      </div>
+      <div className="flex flex-wrap gap-3 mb-5">
+        <SummaryStat label="إجمالي الصافي" value={money(d?.totalNet)} color="text-amber-600" />
+        <SummaryStat label="إجمالي الأساسي" value={money(d?.totalBase)} />
+        <SummaryStat label="إجمالي المكافآت" value={money(d?.totalBonuses)} color="text-emerald-700" />
+        <SummaryStat label="إجمالي الخصومات" value={money(d?.totalDeductions)} color="text-rose-600" />
+        <SummaryStat label="مدفوع" value={String(d?.paidCount ?? 0)} color="text-emerald-700" />
+        <SummaryStat label="معلق" value={String(d?.pendingCount ?? 0)} color="text-amber-600" />
+      </div>
+      <Table
+        headers={["الموظف", "الوظيفة", "الفترة", "النوع", "الأساسي", "مكافآت", "خصومات", "الصافي", "الحالة", "تاريخ الدفع"]}
+        loading={q.isLoading}
+        empty={!d || d.rows.length === 0}
+      >
+        {d?.rows.map((r) => (
+          <tr key={r.id} className="text-slate-700">
+            <td className="py-2 px-3 font-bold">{r.employeeName}</td>
+            <td className="py-2 px-3 text-xs">{r.jobTitle ?? "—"}</td>
+            <td className="py-2 px-3">{r.periodMonth}</td>
+            <td className="py-2 px-3 text-xs">{periodLabel[r.payPeriodType] ?? r.payPeriodType}</td>
+            <td className="py-2 px-3">{money(r.baseSalary)}</td>
+            <td className="py-2 px-3 text-emerald-700">{money(r.bonuses)}</td>
+            <td className="py-2 px-3 text-rose-600">{money(Number(r.advanceDeduction) + Number(r.otherDeductions))}</td>
+            <td className="py-2 px-3 font-black text-amber-700">{money(r.netAmount)}</td>
+            <td className="py-2 px-3">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${r.status === "PAID" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                {statusLabel[r.status] ?? r.status}
+              </span>
+            </td>
+            <td className="py-2 px-3 text-xs">{r.paidAt ? formatDate(r.paidAt) : "—"}</td>
+          </tr>
+        ))}
+      </Table>
+    </div>
+  );
+}
+
+// ── New Report: Supplier Aging ────────────────────────────────────────────────
+
+function SupplierAgingReport() {
+  const q = useQuery({
+    queryKey: ["/api/reports/supplier-aging"],
+    queryFn: () =>
+      customFetch<{
+        rows: { supplierId: string; supplierName: string; phone: string; totalBalance: number; current: number; days30: number; days60: number; days90: number; invoiceCount: number }[];
+        totals: { total: number; current: number; days30: number; days60: number; days90: number };
+        generatedAt: string;
+      }>("/api/reports/supplier-aging"),
+  });
+
+  const d = q.data;
+
+  return (
+    <div>
+      <ReportHeader title="تقادم مستحقات الموردين" />
+      {d?.generatedAt && <p className="text-xs text-slate-400 mb-4">تاريخ التقرير: {formatDateTime(d.generatedAt)}</p>}
+      <div className="flex flex-wrap gap-3 mb-5">
+        <SummaryStat label="إجمالي المستحقات" value={money(d?.totals.total)} color="text-rose-600" />
+        <SummaryStat label="حالي (0-30 يوم)" value={money(d?.totals.current)} color="text-emerald-700" />
+        <SummaryStat label="30-60 يوم" value={money(d?.totals.days30)} color="text-amber-600" />
+        <SummaryStat label="60-90 يوم" value={money(d?.totals.days60)} color="text-orange-600" />
+        <SummaryStat label="+90 يوم" value={money(d?.totals.days90)} color="text-rose-600" />
+      </div>
+      <Table
+        headers={["المورد", "الهاتف", "الفواتير", "الإجمالي", "0-30 يوم", "30-60 يوم", "60-90 يوم", "+90 يوم"]}
+        loading={q.isLoading}
+        empty={!d || d.rows.length === 0}
+      >
+        {d?.rows.map((r) => (
+          <tr key={r.supplierId} className="text-slate-700">
+            <td className="py-2 px-3 font-bold">{r.supplierName}</td>
+            <td className="py-2 px-3 text-xs">{r.phone}</td>
+            <td className="py-2 px-3">{r.invoiceCount}</td>
+            <td className="py-2 px-3 font-black text-rose-600">{money(r.totalBalance)}</td>
+            <td className="py-2 px-3 text-emerald-700">{money(r.current)}</td>
+            <td className="py-2 px-3 text-amber-600">{money(r.days30)}</td>
+            <td className="py-2 px-3 text-orange-600">{money(r.days60)}</td>
+            <td className="py-2 px-3 text-rose-600 font-bold">{money(r.days90)}</td>
+          </tr>
+        ))}
+        {d && d.rows.length > 0 && (
+          <tr className="bg-slate-100 font-black text-slate-800 border-t-2 border-slate-300">
+            <td className="py-2 px-3" colSpan={3}>الإجمالي</td>
+            <td className="py-2 px-3 text-rose-700">{money(d.totals.total)}</td>
+            <td className="py-2 px-3 text-emerald-700">{money(d.totals.current)}</td>
+            <td className="py-2 px-3 text-amber-600">{money(d.totals.days30)}</td>
+            <td className="py-2 px-3 text-orange-600">{money(d.totals.days60)}</td>
+            <td className="py-2 px-3 text-rose-600">{money(d.totals.days90)}</td>
+          </tr>
+        )}
       </Table>
     </div>
   );

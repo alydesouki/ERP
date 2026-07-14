@@ -305,6 +305,13 @@ This ensures the supplier statement shows all invoices regardless of payment met
 | GET `/reports/treasury` | `reports.view` | Treasury movements with IN/OUT totals |
 | GET `/reports/expenses` | `reports.view` | Expense list by category |
 | GET `/reports/top-products` | `reports.sales` | Top 50 products by quantity sold |
+| GET `/reports/accounting-accounts` | `reports.view` | All chart-of-accounts entries for this store |
+| GET `/reports/account-statement` | `reports.view` | Journal lines for one account with running balance. Params: `accountId` (required), `fromDate`, `toDate` |
+| GET `/reports/product-inquiry` | `reports.inventory` | Variant details + stock by warehouse + movement history. Params: `variantId` (required), `fromDate`, `toDate` |
+| GET `/reports/customer-statement` | `reports.view` | Customer AR ledger with running balance. Params: `customerId` (required), `fromDate`, `toDate` |
+| GET `/reports/daily-sales` | `reports.sales` | Revenue/cost/profit grouped by day. Params: `fromDate`, `toDate` |
+| GET `/reports/salary-summary` | `reports.view` | Salary records with totals. Params: `employeeId` (optional), `fromDate`, `toDate` |
+| GET `/reports/supplier-aging` | `reports.view` | Outstanding supplier payables bucketed: 0-30, 30-60, 60-90, 90+ days |
 
 ---
 

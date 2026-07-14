@@ -298,6 +298,13 @@ Every financial event that touches money (sale, purchase payment, expense, salar
 | Treasury | Cash flow movements by account and date |
 | Expenses | Categorized expense list with totals |
 | Top Products | Top 50 variants by quantity sold |
+| Daily Sales | Revenue, cost, and profit grouped by day |
+| Account Statement | Journal entries for a specific account with running balance |
+| Supplier Overview | Purchasing and payment history for a specific supplier |
+| Product Inquiry | Stock, pricing, and movement history for a specific product variant |
+| Customer Statement | Invoicing and payment history for a specific customer |
+| Salary Summary | Payroll records, base, bonuses, and deductions over a period |
+| Supplier Aging | Payables bucketed into 0-30, 30-60, 60-90, and 90+ days |
 
 ---
 
