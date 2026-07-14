@@ -1,7 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import { Package, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { ApiError } from "@workspace/api-client-react";
+import { ApiError, searchUsers } from "@workspace/api-client-react";
+
+type UserSearchResult = Awaited<ReturnType<typeof searchUsers>>[0];
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -11,11 +13,55 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Autocomplete state
+  const [users, setUsers] = useState<UserSearchResult[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!username.trim() || !isOpen) {
+      setUsers([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsLoadingUsers(true);
+      try {
+        const results = await searchUsers({ q: username.trim() });
+        setUsers(results);
+        setSelectedIndex(-1);
+      } catch (err) {
+        console.error("Failed to search users", err);
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [username, isOpen]);
+
+  // Close dropdown if clicked outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     if (!username.trim() || !password) {
       setError("الرجاء إدخال اسم المستخدم وكلمة المرور.");
+      return;
+    }
+    if (password.length < 4) {
+      setError("Password must contain at least 4 characters.");
       return;
     }
     setSubmitting(true);
@@ -33,6 +79,38 @@ export function LoginPage() {
     }
   }
 
+  function handleUsernameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!isOpen && username.trim()) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") setIsOpen(true);
+    }
+    
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev < users.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (isOpen && selectedIndex >= 0 && selectedIndex < users.length) {
+        setUsername(users[selectedIndex].username);
+        setIsOpen(false);
+        passwordInputRef.current?.focus();
+      } else {
+        setIsOpen(false);
+        passwordInputRef.current?.focus();
+      }
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+    }
+  }
+
+  function selectUser(user: UserSearchResult) {
+    setUsername(user.username);
+    setIsOpen(false);
+    passwordInputRef.current?.focus();
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
       <div className="w-full max-w-md">
@@ -48,19 +126,57 @@ export function LoginPage() {
           onSubmit={handleSubmit}
           className="bg-white rounded-2xl shadow-xl p-8 space-y-5"
         >
-          <div>
+          <div className="relative" ref={dropdownRef}>
             <label className="block text-sm font-bold text-slate-700 mb-2">
               اسم المستخدم
             </label>
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
+              onChange={(e) => {
+                setUsername(e.target.value);
+                if (!isOpen) setIsOpen(true);
+              }}
+              onFocus={() => {
+                if (username.trim()) setIsOpen(true);
+              }}
+              onKeyDown={handleUsernameKeyDown}
+              autoComplete="off"
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition"
               placeholder="أدخل اسم المستخدم"
               data-testid="input-username"
             />
+            {isOpen && username.trim() && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
+                {isLoadingUsers ? (
+                  <div className="p-4 flex justify-center text-slate-400">
+                    <Loader2 size={18} className="animate-spin" />
+                  </div>
+                ) : users.length > 0 ? (
+                  <ul className="py-2">
+                    {users.map((user, index) => (
+                      <li
+                        key={user.id}
+                        onMouseDown={(e) => e.preventDefault()} // Prevent blur from firing before click
+                        onClick={() => selectUser(user)}
+                        className={`px-4 py-2 cursor-pointer flex flex-col ${
+                          index === selectedIndex ? "bg-amber-50" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="font-semibold text-slate-800">{user.username}</span>
+                        {user.fullName && (
+                          <span className="text-xs text-slate-500">{user.fullName}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="p-4 text-sm text-slate-500 text-center">
+                    No users found
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -69,6 +185,7 @@ export function LoginPage() {
             </label>
             <div className="relative">
               <input
+                ref={passwordInputRef}
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

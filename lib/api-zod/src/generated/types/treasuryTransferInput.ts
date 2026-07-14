@@ -6,9 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface LoginInput {
-  /** @minLength 1 */
-  username: string;
-  /** @minLength 4 */
-  password: string;
+export interface TreasuryTransferInput {
+  fromAccountId: string;
+  toAccountId: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  description?: string;
 }

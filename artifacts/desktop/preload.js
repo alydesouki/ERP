@@ -62,4 +62,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
    * Save configured printer settings.
    */
   savePrinterSettings: (settings) => ipcRenderer.invoke("save-printer-settings", settings),
+
+  // -------------------------------------------------------------------------
+  // Multi-Window APIs
+  // -------------------------------------------------------------------------
+
+  /** Create a new independent ERP window. Returns { id } */
+  createWindow: () => ipcRenderer.invoke("erp:create-window"),
+  
+  /** Close the current window (or specific id). Returns boolean */
+  closeWindow: (id) => ipcRenderer.invoke("erp:close-window", id),
+  
+  /** List all open ERP windows. Returns Array<{ id, partition, title }> */
+  listWindows: () => ipcRenderer.invoke("erp:list-windows"),
+  
+  /** Bring a specific window to the foreground. Returns boolean */
+  focusWindow: (id) => ipcRenderer.invoke("erp:focus-window", id),
+  
+  /** Get info about the window calling this API. Returns { id, partition } */
+  getCurrentWindow: () => ipcRenderer.invoke("erp:get-current-window"),
 });

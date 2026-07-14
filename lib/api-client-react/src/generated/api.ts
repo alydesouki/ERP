@@ -139,6 +139,7 @@ import type {
   SalesReturnList,
   SalesSummaryReport,
   SearchProductsParams,
+  SearchUsersParams,
   SetupInput,
   SetupResult,
   SetupStatus,
@@ -159,10 +160,14 @@ import type {
   TransferDetail,
   TransferList,
   TreasuryAccount,
+  TreasuryAdjustmentInput,
+  TreasuryAdjustmentResult,
   TreasuryReport,
   TreasurySession,
   TreasurySessionList,
   TreasuryTransactionList,
+  TreasuryTransferInput,
+  TreasuryTransferResult,
   UnreadCount,
   UpdateNumberSequenceInput,
   UpdateStockCountItemsInput,
@@ -170,6 +175,7 @@ import type {
   User,
   UserInput,
   UserList,
+  UserSearchResult,
   UserUpdate,
   ValidationErrorResponse,
   VariantInput,
@@ -709,6 +715,90 @@ export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUs
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCurrentUserQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSearchUsersUrl = (params: SearchUsersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/users/search?${stringifiedParams}` : `/api/users/search`
+}
+
+/**
+ * @summary Search users by username or full name for login autocomplete
+ */
+export const searchUsers = async (params: SearchUsersParams, options?: RequestInit): Promise<UserSearchResult[]> => {
+
+  return customFetch<UserSearchResult[]>(getSearchUsersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchUsersQueryKey = (params?: SearchUsersParams,) => {
+    return [
+    `/api/users/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchUsersQueryOptions = <TData = Awaited<ReturnType<typeof searchUsers>>, TError = ErrorType<unknown>>(params: SearchUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchUsersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchUsers>>> = ({ signal }) => searchUsers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchUsersQueryResult = NonNullable<Awaited<ReturnType<typeof searchUsers>>>
+export type SearchUsersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Search users by username or full name for login autocomplete
+ */
+
+export function useSearchUsers<TData = Awaited<ReturnType<typeof searchUsers>>, TError = ErrorType<unknown>>(
+ params: SearchUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchUsersQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -4176,6 +4266,148 @@ export function useListTreasuryAccounts<TData = Awaited<ReturnType<typeof listTr
 
 
 
+
+export const getCreateTreasuryTransferUrl = () => {
+
+
+
+
+  return `/api/treasury/transfers`
+}
+
+/**
+ * @summary Transfer balance between two treasury accounts
+ */
+export const createTreasuryTransfer = async (treasuryTransferInput: TreasuryTransferInput, options?: RequestInit): Promise<TreasuryTransferResult> => {
+
+  return customFetch<TreasuryTransferResult>(getCreateTreasuryTransferUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(treasuryTransferInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTreasuryTransferMutationOptions = <TError = ErrorType<ValidationErrorResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTreasuryTransfer>>, TError,{data: BodyType<TreasuryTransferInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTreasuryTransfer>>, TError,{data: BodyType<TreasuryTransferInput>}, TContext> => {
+
+const mutationKey = ['createTreasuryTransfer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTreasuryTransfer>>, {data: BodyType<TreasuryTransferInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTreasuryTransfer(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTreasuryTransferMutationResult = NonNullable<Awaited<ReturnType<typeof createTreasuryTransfer>>>
+    export type CreateTreasuryTransferMutationBody = BodyType<TreasuryTransferInput>
+    export type CreateTreasuryTransferMutationError = ErrorType<ValidationErrorResponse | NotFoundResponse>
+
+    /**
+ * @summary Transfer balance between two treasury accounts
+ */
+export const useCreateTreasuryTransfer = <TError = ErrorType<ValidationErrorResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTreasuryTransfer>>, TError,{data: BodyType<TreasuryTransferInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTreasuryTransfer>>,
+        TError,
+        {data: BodyType<TreasuryTransferInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTreasuryTransferMutationOptions(options));
+    }
+
+export const getCreateTreasuryAdjustmentUrl = () => {
+
+
+
+
+  return `/api/treasury/adjustments`
+}
+
+/**
+ * @summary Create a manual treasury adjustment
+ */
+export const createTreasuryAdjustment = async (treasuryAdjustmentInput: TreasuryAdjustmentInput, options?: RequestInit): Promise<TreasuryAdjustmentResult> => {
+
+  return customFetch<TreasuryAdjustmentResult>(getCreateTreasuryAdjustmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(treasuryAdjustmentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTreasuryAdjustmentMutationOptions = <TError = ErrorType<ValidationErrorResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTreasuryAdjustment>>, TError,{data: BodyType<TreasuryAdjustmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTreasuryAdjustment>>, TError,{data: BodyType<TreasuryAdjustmentInput>}, TContext> => {
+
+const mutationKey = ['createTreasuryAdjustment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTreasuryAdjustment>>, {data: BodyType<TreasuryAdjustmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTreasuryAdjustment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTreasuryAdjustmentMutationResult = NonNullable<Awaited<ReturnType<typeof createTreasuryAdjustment>>>
+    export type CreateTreasuryAdjustmentMutationBody = BodyType<TreasuryAdjustmentInput>
+    export type CreateTreasuryAdjustmentMutationError = ErrorType<ValidationErrorResponse | NotFoundResponse>
+
+    /**
+ * @summary Create a manual treasury adjustment
+ */
+export const useCreateTreasuryAdjustment = <TError = ErrorType<ValidationErrorResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTreasuryAdjustment>>, TError,{data: BodyType<TreasuryAdjustmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTreasuryAdjustment>>,
+        TError,
+        {data: BodyType<TreasuryAdjustmentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTreasuryAdjustmentMutationOptions(options));
+    }
 
 export const getListTreasuryTransactionsUrl = (params?: ListTreasuryTransactionsParams,) => {
   const normalizedParams = new URLSearchParams();

@@ -6,9 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface LoginInput {
-  /** @minLength 1 */
-  username: string;
-  /** @minLength 4 */
-  password: string;
-}
+export type SearchUsersParams = {
+/**
+ * Search term
+ */
+q: string;
+};

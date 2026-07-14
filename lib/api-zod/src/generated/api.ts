@@ -67,12 +67,13 @@ export const CompleteSetupResponse = zod.object({
  * @summary Log in with username and password
  */
 
+export const loginBodyPasswordMin = 4;
 
 
 
 export const LoginBody = zod.object({
   "username": zod.string().min(1),
-  "password": zod.string().min(1)
+  "password": zod.string().min(loginBodyPasswordMin)
 })
 
 export const LoginResponse = zod.object({
@@ -136,6 +137,21 @@ export const GetCurrentUserResponse = zod.object({
   "permissions": zod.array(zod.string()),
   "storeName": zod.string()
 })
+
+
+/**
+ * @summary Search users by username or full name for login autocomplete
+ */
+export const SearchUsersQueryParams = zod.object({
+  "q": zod.coerce.string().describe('Search term')
+})
+
+export const SearchUsersResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "username": zod.string(),
+  "fullName": zod.string()
+})
+export const SearchUsersResponse = zod.array(SearchUsersResponseItem)
 
 
 /**
@@ -1311,6 +1327,55 @@ export const ListTreasuryAccountsResponseItem = zod.object({
   "isActive": zod.boolean()
 })
 export const ListTreasuryAccountsResponse = zod.array(ListTreasuryAccountsResponseItem)
+
+
+/**
+ * @summary Transfer balance between two treasury accounts
+ */
+export const createTreasuryTransferBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateTreasuryTransferBody = zod.object({
+  "fromAccountId": zod.string().uuid(),
+  "toAccountId": zod.string().uuid(),
+  "amount": zod.number().gt(createTreasuryTransferBodyAmountExclusiveMin),
+  "description": zod.string().optional()
+})
+
+export const CreateTreasuryTransferResponse = zod.object({
+  "id": zod.string().uuid(),
+  "fromAccountId": zod.string().uuid(),
+  "toAccountId": zod.string().uuid(),
+  "amount": zod.string(),
+  "description": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Create a manual treasury adjustment
+ */
+export const createTreasuryAdjustmentBodyAmountExclusiveMin = 0;
+
+
+
+
+export const CreateTreasuryAdjustmentBody = zod.object({
+  "treasuryAccountId": zod.string().uuid(),
+  "direction": zod.enum(['IN', 'OUT']),
+  "amount": zod.number().gt(createTreasuryAdjustmentBodyAmountExclusiveMin),
+  "reason": zod.string().min(1)
+})
+
+export const CreateTreasuryAdjustmentResponse = zod.object({
+  "id": zod.string().uuid(),
+  "treasuryAccountId": zod.string().uuid(),
+  "direction": zod.enum(['IN', 'OUT']),
+  "amount": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})
 
 
 /**
@@ -2924,22 +2989,12 @@ export const createSalaryBodyDeductionsMin = 0;
 
 
 
-export const createSalaryBodyAdvanceDeductionDefault = 0;
-export const createSalaryBodyAdvanceDeductionMin = 0;
-
-export const createSalaryBodyOtherDeductionsDefault = 0;
-export const createSalaryBodyOtherDeductionsMin = 0;
-
-
-
 export const CreateSalaryBody = zod.object({
   "employeeId": zod.string().uuid(),
   "periodMonth": zod.string().min(1),
-  "payPeriodType": zod.enum(["DAILY", "WEEKLY", "MONTHLY"]).default("MONTHLY"),
   "baseSalary": zod.number().min(createSalaryBodyBaseSalaryMin).optional(),
   "bonuses": zod.number().min(createSalaryBodyBonusesMin).default(createSalaryBodyBonusesDefault),
-  "advanceDeduction": zod.number().min(createSalaryBodyAdvanceDeductionMin).default(createSalaryBodyAdvanceDeductionDefault),
-  "otherDeductions": zod.number().min(createSalaryBodyOtherDeductionsMin).default(createSalaryBodyOtherDeductionsDefault)
+  "deductions": zod.number().min(createSalaryBodyDeductionsMin).default(createSalaryBodyDeductionsDefault)
 })
 
 export const CreateSalaryResponse = zod.object({
@@ -2947,10 +3002,7 @@ export const CreateSalaryResponse = zod.object({
   "employeeId": zod.string().uuid(),
   "employeeName": zod.string().nullish(),
   "periodMonth": zod.string(),
-  "payPeriodType": zod.enum(["DAILY", "WEEKLY", "MONTHLY"]),
   "baseSalary": zod.string(),
-  "advanceDeduction": zod.string(),
-  "otherDeductions": zod.string(),
   "deductions": zod.string(),
   "bonuses": zod.string(),
   "netAmount": zod.string(),
@@ -2977,10 +3029,7 @@ export const PaySalaryResponse = zod.object({
   "employeeId": zod.string().uuid(),
   "employeeName": zod.string().nullish(),
   "periodMonth": zod.string(),
-  "payPeriodType": zod.enum(["DAILY", "WEEKLY", "MONTHLY"]),
   "baseSalary": zod.string(),
-  "advanceDeduction": zod.string(),
-  "otherDeductions": zod.string(),
   "deductions": zod.string(),
   "bonuses": zod.string(),
   "netAmount": zod.string(),
@@ -3100,8 +3149,8 @@ export const GetDashboardChartsResponse = zod.object({
  * @summary Sales summary report
  */
 export const GetSalesSummaryReportQueryParams = zod.object({
-  "fromDate": zod.coerce.date().optional(),
-  "toDate": zod.coerce.date().optional(),
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
   "customerId": zod.string().uuid().optional(),
   "paymentMethod": zod.enum(['CASH', 'CARD', 'INSTAPAY', 'WALLET', 'CREDIT']).optional()
 })
@@ -3125,8 +3174,8 @@ export const GetSalesSummaryReportResponse = zod.object({
  * @summary Purchases summary report
  */
 export const GetPurchasesSummaryReportQueryParams = zod.object({
-  "fromDate": zod.coerce.date().optional(),
-  "toDate": zod.coerce.date().optional(),
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
   "supplierId": zod.string().uuid().optional()
 })
 
@@ -3198,8 +3247,8 @@ export const GetLowStockReportResponse = zod.object({
  * @summary Profit & loss statement
  */
 export const GetProfitLossReportQueryParams = zod.object({
-  "fromDate": zod.coerce.date().optional(),
-  "toDate": zod.coerce.date().optional()
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional()
 })
 
 export const GetProfitLossReportResponse = zod.object({
@@ -3218,8 +3267,8 @@ export const GetProfitLossReportResponse = zod.object({
  * @summary Treasury movements report
  */
 export const GetTreasuryReportQueryParams = zod.object({
-  "fromDate": zod.coerce.date().optional(),
-  "toDate": zod.coerce.date().optional(),
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
   "accountId": zod.string().uuid().optional()
 })
 
@@ -3242,8 +3291,8 @@ export const GetTreasuryReportResponse = zod.object({
  * @summary Expense report
  */
 export const GetExpenseReportQueryParams = zod.object({
-  "fromDate": zod.coerce.date().optional(),
-  "toDate": zod.coerce.date().optional(),
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional(),
   "categoryId": zod.string().uuid().optional()
 })
 
@@ -3263,8 +3312,8 @@ export const GetExpenseReportResponse = zod.object({
  * @summary Top selling products report
  */
 export const GetTopProductsReportQueryParams = zod.object({
-  "fromDate": zod.coerce.date().optional(),
-  "toDate": zod.coerce.date().optional()
+  "fromDate": zod.date().optional(),
+  "toDate": zod.date().optional()
 })
 
 export const GetTopProductsReportResponse = zod.object({
@@ -3852,42 +3901,3 @@ export const CancelStockCountResponse = zod.object({
 }))
 
 
-
-/**
- * @summary Transfer balance between two treasury accounts
- */
-export const CreateTreasuryTransferBody = zod.object({
-  "fromAccountId": zod.string().uuid(),
-  "toAccountId": zod.string().uuid(),
-  "amount": zod.number().positive(),
-  "description": zod.string().optional()
-})
-
-export const CreateTreasuryTransferResponse = zod.object({
-  "id": zod.string().uuid(),
-  "fromAccountId": zod.string().uuid(),
-  "toAccountId": zod.string().uuid(),
-  "amount": zod.string(),
-  "description": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
-
-
-/**
- * @summary Create a manual treasury adjustment
- */
-export const CreateTreasuryAdjustmentBody = zod.object({
-  "treasuryAccountId": zod.string().uuid(),
-  "direction": zod.enum(["IN", "OUT"]),
-  "amount": zod.number().positive(),
-  "reason": zod.string().min(1)
-})
-
-export const CreateTreasuryAdjustmentResponse = zod.object({
-  "id": zod.string().uuid(),
-  "treasuryAccountId": zod.string().uuid(),
-  "direction": zod.enum(["IN", "OUT"]),
-  "amount": zod.string(),
-  "reason": zod.string(),
-  "createdAt": zod.coerce.date()
-})

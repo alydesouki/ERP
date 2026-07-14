@@ -13,6 +13,42 @@ import { requireAuth, requirePermission } from "../middleware/auth";
 
 const router: IRouter = Router();
 
+// GET /users/search (Public endpoint for login autocomplete)
+router.get("/users/search", async (req, res) => {
+  try {
+    const q = req.query.q;
+    if (typeof q !== "string" || !q.trim()) {
+      res.json([]);
+      return;
+    }
+    const term = `%${q.trim()}%`;
+    const searchCond = or(
+      like(usersTable.username, term),
+      like(usersTable.fullName, term)
+    );
+
+    const rows = await db
+      .select({
+        id: usersTable.id,
+        username: usersTable.username,
+        fullName: usersTable.fullName,
+      })
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.isDeleted, false),
+          eq(usersTable.isActive, true),
+          searchCond
+        )
+      )
+      .limit(8);
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "تعذّر البحث عن المستخدمين" });
+  }
+});
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

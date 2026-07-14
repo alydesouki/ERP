@@ -161,6 +161,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/search:
+    get:
+      operationId: searchUsers
+      tags: [users]
+      summary: Search users by username or full name for login autocomplete
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search term
+      responses:
+        "200":
+          description: List of matching users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSearchResult"
+
   /users:
     get:
       operationId: listUsers
@@ -1163,6 +1185,52 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TreasuryAccount"
+
+  /treasury/transfers:
+    post:
+      operationId: createTreasuryTransfer
+      tags: [treasury]
+      summary: Transfer balance between two treasury accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TreasuryTransferInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasuryTransferResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /treasury/adjustments:
+    post:
+      operationId: createTreasuryAdjustment
+      tags: [treasury]
+      summary: Create a manual treasury adjustment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TreasuryAdjustmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasuryAdjustmentResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /treasury/transactions:
     get:
@@ -2980,7 +3048,21 @@ components:
           minLength: 1
         password:
           type: string
-          minLength: 1
+          minLength: 4
+    UserSearchResult:
+      type: object
+      required:
+        - id
+        - username
+        - fullName
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        fullName:
+          type: string
 
     RoleRef:
       type: object
@@ -3213,6 +3295,101 @@ components:
         - module
         - labelAr
         - permissions
+
+
+
+    TreasuryTransferInput:
+      type: object
+      required:
+        - fromAccountId
+        - toAccountId
+        - amount
+      properties:
+        fromAccountId:
+          type: string
+          format: uuid
+        toAccountId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        description:
+          type: string
+
+    TreasuryTransferResult:
+      type: object
+      required:
+        - id
+        - fromAccountId
+        - toAccountId
+        - amount
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        fromAccountId:
+          type: string
+          format: uuid
+        toAccountId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    TreasuryAdjustmentInput:
+      type: object
+      required:
+        - treasuryAccountId
+        - direction
+        - amount
+        - reason
+      properties:
+        treasuryAccountId:
+          type: string
+          format: uuid
+        direction:
+          type: string
+          enum: ["IN", "OUT"]
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        reason:
+          type: string
+          minLength: 1
+
+    TreasuryAdjustmentResult:
+      type: object
+      required:
+        - id
+        - treasuryAccountId
+        - direction
+        - amount
+        - reason
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        treasuryAccountId:
+          type: string
+          format: uuid
+        direction:
+          type: string
+          enum: ["IN", "OUT"]
+        amount:
+          type: string
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
 
     UserList:
       type: object

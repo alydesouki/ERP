@@ -82,6 +82,21 @@ interface ElectronAPI {
    * Save configured printer settings.
    */
   savePrinterSettings(settings: PrinterSettings): Promise<{ success: boolean; error?: string }>;
+
+  /** Create a new independent ERP window. */
+  createWindow(): Promise<{ id: string }>;
+
+  /** Close the current window (or specific id). */
+  closeWindow(id?: string): Promise<boolean>;
+
+  /** List all open ERP windows. */
+  listWindows(): Promise<Array<{ id: string; partition: string; title: string }>>;
+
+  /** Bring a specific window to the foreground. */
+  focusWindow(id: string): Promise<boolean>;
+
+  /** Get info about the window calling this API. */
+  getCurrentWindow(): Promise<{ id: string; partition: string } | null>;
 }
 
 interface PrinterSettings {

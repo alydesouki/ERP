@@ -57,8 +57,14 @@ export interface SetupResult {
 export interface LoginInput {
   /** @minLength 1 */
   username: string;
-  /** @minLength 1 */
+  /** @minLength 4 */
   password: string;
+}
+
+export interface UserSearchResult {
+  id: string;
+  username: string;
+  fullName: string;
 }
 
 export interface RoleRef {
@@ -164,6 +170,58 @@ export interface PermissionGroup {
   module: string;
   labelAr: string;
   permissions: PermissionDef[];
+}
+
+export interface TreasuryTransferInput {
+  fromAccountId: string;
+  toAccountId: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  description?: string;
+}
+
+export interface TreasuryTransferResult {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: string;
+  /** @nullable */
+  description?: string | null;
+  createdAt: string;
+}
+
+export type TreasuryAdjustmentInputDirection = typeof TreasuryAdjustmentInputDirection[keyof typeof TreasuryAdjustmentInputDirection];
+
+
+export const TreasuryAdjustmentInputDirection = {
+  IN: 'IN',
+  OUT: 'OUT',
+} as const;
+
+export interface TreasuryAdjustmentInput {
+  treasuryAccountId: string;
+  direction: TreasuryAdjustmentInputDirection;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  /** @minLength 1 */
+  reason: string;
+}
+
+export type TreasuryAdjustmentResultDirection = typeof TreasuryAdjustmentResultDirection[keyof typeof TreasuryAdjustmentResultDirection];
+
+
+export const TreasuryAdjustmentResultDirection = {
+  IN: 'IN',
+  OUT: 'OUT',
+} as const;
+
+export interface TreasuryAdjustmentResult {
+  id: string;
+  treasuryAccountId: string;
+  direction: TreasuryAdjustmentResultDirection;
+  amount: string;
+  reason: string;
+  createdAt: string;
 }
 
 export interface UserList {
@@ -1738,6 +1796,13 @@ export type NotFoundResponse = ErrorResponse;
  * Conflict
  */
 export type ConflictResponse = ErrorResponse;
+
+export type SearchUsersParams = {
+/**
+ * Search term
+ */
+q: string;
+};
 
 export type ListUsersParams = {
 /**

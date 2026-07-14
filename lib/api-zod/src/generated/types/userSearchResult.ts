@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface LoginInput {
-  /** @minLength 1 */
+export interface UserSearchResult {
+  id: string;
   username: string;
-  /** @minLength 4 */
-  password: string;
+  fullName: string;
 }
