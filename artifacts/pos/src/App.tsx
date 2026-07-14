@@ -1,6 +1,7 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import { queryClient } from "@/lib/query-client";
 import { useGetSetupStatus } from "@workspace/api-client-react";
 import { AuthProvider, useAuth } from "@/lib/auth";
@@ -34,6 +35,20 @@ import NotFound from "@/pages/not-found";
 // queryClient is defined in @/lib/query-client — it includes the generic
 // lookup-sync MutationCache that invalidates all dropdowns on any mutation.
 
+// ---------------------------------------------------------------------------
+// RouteTracker — notifies Electron main process of route changes
+// so each window can be restored to the correct page.
+// No-op in a regular browser.
+// ---------------------------------------------------------------------------
+function RouteTracker() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.erp?.notifyRouteChanged(location);
+  }, [location]);
+  return null;
+}
+
+
 function FullScreenLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900">
@@ -66,6 +81,7 @@ function PermissionGate({
 function AuthenticatedApp() {
   return (
     <AppShell>
+      <RouteTracker />
       <Switch>
         <Route path="/dashboard" component={DashboardPage} />
         <Route path="/pos">

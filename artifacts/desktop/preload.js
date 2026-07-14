@@ -5,7 +5,10 @@
  *
  * This script runs in an isolated context with access to Node.js APIs,
  * and safely exposes a limited set of capabilities to the renderer process
- * (the React SPA) via window.electronAPI.
+ * (the React SPA) via two namespaces:
+ *
+ *   window.electronAPI   — existing desktop API (printing, version, etc.)
+ *   window.erp           — multi-window management API (new)
  *
  * Security:
  * - contextIsolation: true  →  renderer JS cannot access Node.js or Electron APIs
@@ -15,6 +18,9 @@
 
 const { contextBridge, ipcRenderer } = require("electron");
 
+// ---------------------------------------------------------------------------
+// window.electronAPI — existing desktop capabilities (unchanged)
+// ---------------------------------------------------------------------------
 contextBridge.exposeInMainWorld("electronAPI", {
   /**
    * Identifies that the app is running inside Electron (not a browser).
@@ -61,5 +67,51 @@ contextBridge.exposeInMainWorld("electronAPI", {
   /**
    * Save configured printer settings.
    */
-  savePrinterSettings: (settings) => ipcRenderer.invoke("save-printer-settings", settings),
+  savePrinterSettings: (settings) =>
+    ipcRenderer.invoke("save-printer-settings", settings),
+});
+
+// ---------------------------------------------------------------------------
+// window.erp — multi-window management (new)
+// ---------------------------------------------------------------------------
+contextBridge.exposeInMainWorld("erp", {
+  /**
+   * Open a new independent ERP window with its own isolated session.
+   * @returns {Promise<void>}
+   */
+  createWindow: () => ipcRenderer.invoke("erp:create-window"),
+
+  /**
+   * Close the current window.
+   * @returns {Promise<void>}
+   */
+  closeWindow: () => ipcRenderer.invoke("erp:close-window"),
+
+  /**
+   * List all open windows.
+   * @returns {Promise<Array<{id: string, title: string, partition: string, isActive: boolean}>>}
+   */
+  listWindows: () => ipcRenderer.invoke("erp:list-windows"),
+
+  /**
+   * Bring the specified window to the foreground.
+   * @param {string} windowId
+   * @returns {Promise<void>}
+   */
+  focusWindow: (windowId) => ipcRenderer.invoke("erp:focus-window", windowId),
+
+  /**
+   * Get info about the current window.
+   * @returns {Promise<{id: string, partition: string, isActive: boolean} | null>}
+   */
+  getCurrentWindow: () => ipcRenderer.invoke("erp:get-current-window"),
+
+  /**
+   * Notify the main process that the route has changed.
+   * This is used to persist the last route so windows can be restored to the
+   * correct page.
+   * @param {string} route  e.g. "/dashboard"
+   */
+  notifyRouteChanged: (route) =>
+    ipcRenderer.send("erp:route-changed", route),
 });

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import { db, usersTable, rolesTable } from "@workspace/db";
 import {
   CreateUserBody,
@@ -19,6 +19,60 @@ const UUID_RE =
 function clientIp(req: Request): string | null {
   return req.ip ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// GET /users/search?q=<query>
+//
+// PUBLIC endpoint — no authentication required.
+// Powers the login-screen username autocomplete.
+//
+// Security:
+//   - Returns ONLY id, username, fullName — no passwords, hashes, or permissions.
+//   - Only searches active, non-deleted users.
+//   - Maximum 8 results to prevent data harvesting.
+//   - Requires at least 1 character (enforced below).
+// ---------------------------------------------------------------------------
+router.get("/users/search", async (req, res) => {
+  const q = typeof req.query["q"] === "string" ? req.query["q"].trim() : "";
+
+  if (!q || q.length < 1) {
+    res.json({ items: [] });
+    return;
+  }
+
+  const term = `%${q}%`;
+  const termStart = `${q}%`; // for prefix-priority ordering
+
+  try {
+    const rows = await db
+      .select({
+        id: usersTable.id,
+        username: usersTable.username,
+        fullName: usersTable.fullName,
+      })
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.isDeleted, false),
+          eq(usersTable.isActive, true),
+          or(
+            like(usersTable.username, term),
+            like(usersTable.fullName, term),
+          ),
+        ),
+      )
+      // Prioritise usernames that START WITH the query, then alphabetical
+      .orderBy(
+        sql`CASE WHEN lower(${usersTable.username}) LIKE lower(${termStart}) THEN 0 ELSE 1 END`,
+        asc(usersTable.username),
+      )
+      .limit(8);
+
+    res.json({ items: rows });
+  } catch (err) {
+    res.status(500).json({ error: "حدث خطأ أثناء البحث" });
+  }
+});
 
 const userColumns = {
   id: usersTable.id,

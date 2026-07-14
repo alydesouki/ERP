@@ -90,10 +90,68 @@ interface PrinterSettings {
   invoicePrinter?: string;
 }
 
+/** Info about a single open ERP window */
+interface ErpWindowInfo {
+  /** Unique window identifier */
+  id: string;
+  /** Window title */
+  title: string;
+  /** Electron session partition string e.g. "persist:erp-window-uuid" */
+  partition: string;
+  /** Whether this is the currently focused window */
+  isActive: boolean;
+}
+
+/** Multi-window management API exposed via window.erp */
+interface ErpAPI {
+  /**
+   * Open a new independent ERP window with its own isolated session.
+   * Equivalent to Ctrl+Shift+N.
+   */
+  createWindow(): Promise<void>;
+
+  /**
+   * Close the current window.
+   * Equivalent to Ctrl+W.
+   */
+  closeWindow(): Promise<void>;
+
+  /**
+   * List all currently open ERP windows.
+   */
+  listWindows(): Promise<ErpWindowInfo[]>;
+
+  /**
+   * Bring the specified window to the foreground.
+   * @param windowId  The window's unique identifier
+   */
+  focusWindow(windowId: string): Promise<void>;
+
+  /**
+   * Get info about the current window (the one this code is running in).
+   * Returns null if called outside Electron.
+   */
+  getCurrentWindow(): Promise<ErpWindowInfo | null>;
+
+  /**
+   * Notify the main process that the React Router route has changed.
+   * Used to persist the last route so the window can be restored to the
+   * correct page after a restart.
+   * @param route  e.g. "/dashboard"
+   */
+  notifyRouteChanged(route: string): void;
+}
+
 interface Window {
   /**
    * Electron IPC bridge exposed via contextBridge in preload.js.
    * `undefined` when running in a regular browser.
    */
   electronAPI?: ElectronAPI;
+
+  /**
+   * Multi-window management API exposed via contextBridge in preload.js.
+   * `undefined` when running in a regular browser.
+   */
+  erp?: ErpAPI;
 }
