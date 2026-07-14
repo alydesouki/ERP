@@ -604,7 +604,7 @@ function SupplierStatementModal({
                       {TX_TYPE_LABELS[t.type] ?? t.type}
                     </td>
                     <td className="px-4 py-3 font-mono text-slate-500">
-                      {(t as any).invoiceNumber ?? "—"}
+                      {t.invoiceNumber ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-red-600">
                       {Number(t.debit) ? money(t.debit) : "—"}

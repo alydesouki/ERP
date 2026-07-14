@@ -90,13 +90,13 @@ export function QuickProductModal({
         ];
       }
 
-      const res = (await customFetch("/products", {
+      const res = (await customFetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(productInput),
       })) as Product & { variants?: ProductVariant[] };
 
-      void queryClient.invalidateQueries({ queryKey: ["/products"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/products"] });
 
       const variant = res.variants?.[0];
       if (!variant) {

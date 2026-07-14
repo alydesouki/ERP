@@ -1,6 +1,8 @@
 # API Documentation
 
-> All 22 API route files documented. Base path: `/api`. Authentication: `Authorization: Bearer <accessToken>` on all protected routes.
+> All API route files documented. Base path: `/api`. Authentication: `Authorization: Bearer <accessToken>` on all protected routes.
+>
+> **All endpoints are accessible at `http://localhost:5001/api/...` in both Localhost and Desktop modes.**
 
 ---
 
@@ -106,6 +108,7 @@ Manages `categories`, `brands`, `colors`, `sizes`.
 | POST | `/products/:id/variants` | `products.create` | Add variant to product |
 | PATCH | `/products/variants/:id` | `products.edit` | Update variant (price, cost) |
 | DELETE | `/products/variants/:id` | `products.delete` | Deactivate variant |
+| GET | `/products/search` | `products.view` | Full-text search across name/SKU/barcode (POS search field) |
 | GET | `/products/barcode/:barcode` | `sales.create` | Lookup by barcode (POS scan) |
 
 **Notes:**
@@ -190,6 +193,12 @@ Manages `categories`, `brands`, `colors`, `sizes`.
 | POST | `/purchase-returns` | `purchases.return` | Create purchase return |
 | GET | `/purchase-returns/:id` | `purchases.return` | Return detail |
 
+**Important:** Every purchase (cash or credit) always creates:
+1. A `supplier_transactions` row of type `PURCHASE` (full invoice amount as credit to supplier balance)
+2. If any cash was tendered: a second `supplier_transactions` row of type `PAYMENT` (immediate debit)
+
+This ensures the supplier statement shows all invoices regardless of payment method.
+
 ---
 
 ## Customers (`/customers`)
@@ -208,13 +217,15 @@ Manages `categories`, `brands`, `colors`, `sizes`.
 
 ## Suppliers (`/suppliers`)
 
-Mirror of Customers:
-
 | Route | Description |
 |---|---|
 | GET/POST/PATCH/DELETE `/suppliers` | CRUD |
-| GET `/suppliers/:id/statement` | Ledger |
+| GET `/suppliers/:id/statement` | Full ledger with invoice numbers |
 | POST `/suppliers/:id/payments` | Record supplier payment |
+
+**Supplier Statement (`GET /suppliers/:id/statement`) response:**
+- Returns `{ supplier, items: SupplierTransaction[], total, page, pageSize }`
+- Each `SupplierTransaction` item includes `invoiceNumber` (from a LEFT JOIN on `purchase_invoices`) — present only for `PURCHASE`-type transactions
 
 ---
 
@@ -227,6 +238,18 @@ Mirror of Customers:
 | GET | `/treasury/sessions` | `treasury.view` | List sessions |
 | POST | `/treasury/sessions` | `treasury.session` | Open a cash session |
 | POST | `/treasury/sessions/:id/close` | `treasury.session` | Close session with actual balance |
+| **POST** | **`/treasury/transfers`** | `treasury.session` | **Transfer money between two treasury accounts** |
+| **POST** | **`/treasury/adjustments`** | `treasury.session` | **Manual cash reconciliation (IN/OUT adjustment)** |
+
+### `POST /treasury/transfers` body:
+```json
+{ "fromAccountId": "uuid", "toAccountId": "uuid", "amount": 500, "description": "optional" }
+```
+
+### `POST /treasury/adjustments` body:
+```json
+{ "treasuryAccountId": "uuid", "direction": "IN"|"OUT", "amount": 100, "reason": "required text" }
+```
 
 ---
 
@@ -238,9 +261,25 @@ Mirror of Customers:
 | GET/POST | `/expenses` | `expenses.create` or `finance.view` | Expenses list + create |
 | GET/POST/PATCH/DELETE | `/employees` | `finance.manage` | Employee CRUD |
 | GET/POST | `/salary-records` | `finance.manage` | Salary records list + generate |
-| POST | `/salary-records/:id/pay` | `finance.manage` | Mark salary as paid |
+| POST | `/salary-records/:id/pay` | `finance.manage` | Mark salary as paid (deducts advance balance) |
 | GET/POST | `/employee-advances` | `finance.manage` | Advance list + create |
 | GET/POST | `/equity-movements` | `finance.manage` | Owner withdrawal/deposit |
+
+### Salary Record Fields (POST `/salary-records`):
+```json
+{
+  "employeeId": "uuid",
+  "periodMonth": "2024-01",
+  "payPeriodType": "MONTHLY" | "WEEKLY" | "DAILY",
+  "advanceDeduction": 500,
+  "otherDeductions": 100,
+  "bonuses": 200
+}
+```
+
+- `payPeriodType`: Controls base salary division (MONTHLY = base, WEEKLY = base/4, DAILY = base/30)
+- `advanceDeduction`: Amount to deduct from employee advance balance. If omitted, auto-fills from `employee.advanceBalance`
+- Advance balance is decremented on the employee record **when the salary is marked as PAID** (not at creation)
 
 ---
 
@@ -290,8 +329,9 @@ Mirror of Customers:
 
 ---
 
-## Health (`/health`)
+## Health (`/health` and `/healthz`)
 
 | Route | Auth | Response |
 |---|---|---|
 | GET `/health` | None | `{ ok: true }` — used for uptime checks |
+| GET `/healthz` | None | `{ ok: true }` — used by Electron startup health polling |

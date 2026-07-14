@@ -469,7 +469,7 @@ function TransferModal({
   const queryClient = useQueryClient();
   const mut = useMutation({
     mutationFn: async () => {
-      await customFetch("/treasury/transfers", {
+      await customFetch("/api/treasury/transfers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -481,7 +481,8 @@ function TransferModal({
       });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["/treasury"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/treasury/transactions"] });
       onClose();
     },
     onError: (err) => setError(apiErrorMessage(err, "فشل تحويل الرصيد")),
@@ -575,7 +576,7 @@ function AdjustmentModal({
   const queryClient = useQueryClient();
   const mut = useMutation({
     mutationFn: async () => {
-      await customFetch("/treasury/adjustments", {
+      await customFetch("/api/treasury/adjustments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -587,7 +588,8 @@ function AdjustmentModal({
       });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["/treasury"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/treasury/transactions"] });
       onClose();
     },
     onError: (err) => setError(apiErrorMessage(err, "فشلت عملية التسوية")),

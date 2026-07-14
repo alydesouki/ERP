@@ -691,6 +691,12 @@ export interface SupplierTransaction {
   /** @nullable */
   description?: string | null;
   createdAt: string;
+  /**
+   * Invoice number from the linked purchase invoice.
+   * Only present for PURCHASE-type transactions.
+   * @nullable
+   */
+  invoiceNumber?: string | null;
 }
 
 export interface SupplierStatement {
