@@ -765,9 +765,7 @@ router.post(
     const userId = req.auth!.userId;
     const { employeeId, periodMonth, payPeriodType } = parsed.data;
     const bonuses = parsed.data.bonuses ?? 0;
-    const advanceDeduction = parsed.data.advanceDeduction ?? 0;
     const otherDeductions = parsed.data.otherDeductions ?? 0;
-    const totalDeductions = advanceDeduction + otherDeductions;
 
     await ensureStoreFinancials(db, storeId);
 
@@ -785,10 +783,30 @@ router.post(
           .limit(1);
         if (!employee) throw new Error("EMPLOYEE_NOT_FOUND");
 
+        let calculatedBaseSalary = toNum(employee.monthlySalary);
+        const type = payPeriodType ?? "MONTHLY";
+        if (type === "WEEKLY") {
+            calculatedBaseSalary = calculatedBaseSalary / 4;
+        } else if (type === "DAILY") {
+            calculatedBaseSalary = calculatedBaseSalary / 30;
+        }
+
         const baseSalary =
           parsed.data.baseSalary !== undefined
             ? parsed.data.baseSalary
-            : toNum(employee.monthlySalary);
+            : calculatedBaseSalary;
+
+        const maxDeductible = Math.max(0, baseSalary + bonuses - otherDeductions);
+        let autoAdvanceDeduction = 0;
+        if (toNum(employee.advanceBalance) > 0) {
+          autoAdvanceDeduction = Math.min(toNum(employee.advanceBalance), maxDeductible);
+        }
+
+        const advanceDeduction = parsed.data.advanceDeduction !== undefined 
+          ? parsed.data.advanceDeduction 
+          : autoAdvanceDeduction;
+
+        const totalDeductions = advanceDeduction + otherDeductions;
 
         // Only advance deduction is constrained by the advance balance.
         if (advanceDeduction > toNum(employee.advanceBalance)) {
@@ -806,6 +824,7 @@ router.post(
             and(
               eq(salaryRecordsTable.employeeId, employeeId),
               eq(salaryRecordsTable.periodMonth, periodMonth),
+              eq(salaryRecordsTable.payPeriodType, payPeriodType ?? "MONTHLY"),
             ),
           )
           .limit(1);
@@ -859,6 +878,10 @@ router.post(
       }
       if (err instanceof Error && err.message === "DUPLICATE_PERIOD") {
         res.status(409).json({ error: "يوجد راتب لهذا الموظف عن نفس الفترة" });
+        return;
+      }
+      if (err instanceof Error && err.message === "EMPTY_JOURNAL") {
+        res.status(400).json({ error: "إجمالي الراتب لا يمكن أن يكون صفراً" });
         return;
       }
       throw err;

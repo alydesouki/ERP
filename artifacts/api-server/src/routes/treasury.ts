@@ -507,7 +507,7 @@ router.post(
         ipAddress: clientIp(req),
       });
 
-      res.status(201).json({ ...transfer, createdAt: transfer.createdAt.toISOString() });
+      res.status(201).json({ ...transfer, createdAt: new Date(transfer.createdAt).toISOString() });
     } catch (err) {
       if (err instanceof Error && err.message === "FROM_ACCOUNT_NOT_FOUND") {
         res.status(404).json({ error: "الخزينة المصدر غير موجودة" });
@@ -610,7 +610,7 @@ router.post(
         ipAddress: clientIp(req),
       });
 
-      res.status(201).json({ ...adjustment, createdAt: adjustment.createdAt.toISOString() });
+      res.status(201).json({ ...adjustment, createdAt: new Date(adjustment.createdAt).toISOString() });
     } catch (err) {
       if (err instanceof Error && err.message === "TREASURY_ACCOUNT_NOT_FOUND") {
         res.status(404).json({ error: "الخزينة غير موجودة" });

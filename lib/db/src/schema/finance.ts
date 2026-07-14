@@ -116,7 +116,7 @@ export const salaryRecordsTable = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("salary_records_employee_period_unique").on(table.employeeId, table.periodMonth),
+    uniqueIndex("salary_records_employee_period_unique").on(table.employeeId, table.periodMonth, table.payPeriodType),
     index("salary_records_store_idx").on(table.storeId),
   ],
 );

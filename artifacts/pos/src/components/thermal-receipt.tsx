@@ -357,7 +357,7 @@ export function ThermalReceipt({
 
       {/* ── Footer ── */}
       <div className="receipt-center" style={{ textAlign: "center", fontSize: forPrint ? undefined : "10px", marginTop: "4px" }}>
-        {data.receiptFooter ?? "شكرا لتعاملكم معانا ❤"}
+        {data.receiptFooter ?? "شكرا لتعاملكم معنا ❤"}
       </div>
     </div>
     </>

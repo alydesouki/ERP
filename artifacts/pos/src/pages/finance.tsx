@@ -782,13 +782,35 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
     setModalOpen(true);
   }
 
+  function updateSalaryBasedOnType(monthlyStr: string, type: string, advanceBalanceStr: string) {
+    let amt = Number(monthlyStr) || 0;
+    if (type === "WEEKLY") amt = amt / 4;
+    else if (type === "DAILY") amt = amt / 30;
+    setBaseSalary(amt > 0 ? amt.toFixed(2) : "");
+
+    const advance = Number(advanceBalanceStr) || 0;
+    if (advance > 0) {
+      const maxDeductible = Math.max(0, amt);
+      const deduct = Math.min(advance, maxDeductible);
+      setAdvanceDeduction(deduct > 0 ? deduct.toFixed(2) : "");
+    } else {
+      setAdvanceDeduction("");
+    }
+  }
+
   function onEmployeeChange(id: string) {
     setEmployeeId(id);
     const emp = employees.find((e) => e.id === id);
     if (emp) {
-      setBaseSalary(emp.monthlySalary);
-      const adv = Number(emp.advanceBalance) || 0;
-      if (adv > 0) setAdvanceDeduction(adv.toString());
+      updateSalaryBasedOnType(emp.monthlySalary, payPeriodType, emp.advanceBalance);
+    }
+  }
+
+  function onPayPeriodTypeChange(type: "DAILY" | "WEEKLY" | "MONTHLY") {
+    setPayPeriodType(type);
+    const emp = employees.find((e) => e.id === employeeId);
+    if (emp) {
+      updateSalaryBasedOnType(emp.monthlySalary, type, emp.advanceBalance);
     }
   }
 
@@ -912,7 +934,7 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
             <select
               className={inputClass}
               value={payPeriodType}
-              onChange={(e) => setPayPeriodType(e.target.value as any)}
+              onChange={(e) => onPayPeriodTypeChange(e.target.value as any)}
             >
               <option value="MONTHLY">شهري</option>
               <option value="WEEKLY">أسبوعي</option>
@@ -954,7 +976,7 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
                 className={inputClass}
                 value={advanceDeduction}
                 onChange={(e) => setAdvanceDeduction(e.target.value)}
-                placeholder="تُسدد من رصيد السلف"
+                placeholder="يُحسب تلقائياً إذا تُرك فارغاً"
               />
               <span className="text-xs text-slate-500 mt-1 block">
                 تخصم من رصيد السلف (حساب 1300)

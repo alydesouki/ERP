@@ -44,6 +44,20 @@ function money(v: string | number | null | undefined): string {
   return n.toLocaleString("ar-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function parseArabicNumber(val: string | number): number {
+  if (!val) return 0;
+  if (typeof val === "number") return val;
+  const normalized = val
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/[٫]/g, '.');
+  return Number(normalized);
+}
+
+function toArabicNumerals(val: string): string {
+  const arabicNumbers = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+  return val.replace(/[0-9]/g, (d) => arabicNumbers[Number(d)]);
+}
+
 const ACCOUNT_ICONS: Record<string, React.ReactNode> = {
   CASH: <Banknote size={22} />,
   CARD: <CreditCard size={22} />,
@@ -294,7 +308,7 @@ function SessionModal({
 
   async function handleOpen() {
     setError(null);
-    const amt = Number(amount);
+    const amt = parseArabicNumber(amount);
     if (amt < 0 || Number.isNaN(amt)) return setError("أدخل رصيداً افتتاحياً صحيحاً.");
     try {
       await openMutation.mutateAsync({
@@ -312,7 +326,7 @@ function SessionModal({
   async function handleClose() {
     if (!current) return;
     setError(null);
-    const amt = Number(amount);
+    const amt = parseArabicNumber(amount);
     if (amt < 0 || Number.isNaN(amt)) return setError("أدخل الرصيد الفعلي عند الإغلاق.");
     try {
       await closeMutation.mutateAsync({
@@ -356,10 +370,12 @@ function SessionModal({
                 الرصيد الفعلي عند الإغلاق <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
+                dir="ltr"
                 className={inputClass}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(toArabicNumerals(e.target.value))}
                 data-testid="input-closing-balance"
               />
             </div>
@@ -398,10 +414,12 @@ function SessionModal({
                 الرصيد الافتتاحي <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
+                dir="ltr"
                 className={inputClass}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(toArabicNumerals(e.target.value))}
                 data-testid="input-opening-balance"
               />
             </div>
@@ -457,7 +475,7 @@ function TransferModal({
         body: JSON.stringify({
           fromAccountId,
           toAccountId,
-          amount: Number(amount),
+          amount: parseArabicNumber(amount),
           description: notes,
         }),
       });
@@ -506,11 +524,13 @@ function TransferModal({
         <div>
           <label className="block text-sm font-bold text-slate-700 mb-2">المبلغ</label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
+            dir="ltr"
             className={inputClass}
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
+            onChange={(e) => setAmount(toArabicNumerals(e.target.value))}
+            placeholder="٠.٠٠"
           />
         </div>
         <div>
@@ -561,7 +581,7 @@ function AdjustmentModal({
         body: JSON.stringify({
           treasuryAccountId: account.id,
           direction,
-          amount: Number(amount),
+          amount: parseArabicNumber(amount),
           reason,
         }),
       });
@@ -608,11 +628,13 @@ function AdjustmentModal({
         <div>
           <label className="block text-sm font-bold text-slate-700 mb-2">مبلغ التسوية</label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
+            dir="ltr"
             className={inputClass}
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
+            onChange={(e) => setAmount(toArabicNumerals(e.target.value))}
+            placeholder="٠.٠٠"
           />
         </div>
         <div>
