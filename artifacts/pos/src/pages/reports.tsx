@@ -409,19 +409,25 @@ function InventoryReport() {
     query: { queryKey: getGetInventoryStockReportQueryKey() },
   });
   const d = q.data;
+  
+  const totalProfit = Number(d?.totalSalesValue ?? 0) - Number(d?.totalPurchaseCost ?? 0);
+
   return (
     <div>
       <div className="flex flex-wrap gap-3 mb-5">
         <SummaryStat label="إجمالي الكمية" value={String(d?.totalQuantity ?? 0)} />
         <SummaryStat label="إجمالي تكلفة الشراء" value={money(d?.totalPurchaseCost)} color="text-rose-600" />
         <SummaryStat label="إجمالي قيمة البيع" value={money(d?.totalSalesValue)} color="text-emerald-700" />
+        <SummaryStat label="إجمالي الربح" value={money(totalProfit)} color="text-amber-600" />
       </div>
       <Table
-        headers={["المنتج", "النوع", "SKU", "المخزن", "الفئة", "الكمية", "سعر التكلفة", "سعر البيع", "إجمالي تكلفة الشراء", "إجمالي قيمة البيع"]}
+        headers={["المنتج", "النوع", "SKU", "المخزن", "الفئة", "الكمية", "سعر التكلفة", "سعر البيع", "إجمالي تكلفة الشراء", "إجمالي قيمة البيع", "الربح"]}
         loading={q.isLoading}
         empty={!d || d.rows.length === 0}
       >
-        {d?.rows.map((r) => (
+        {d?.rows.map((r) => {
+          const rowProfit = Number(r.totalSalesValue ?? 0) - Number(r.totalPurchaseCost ?? 0);
+          return (
           <tr key={`${r.variantId}-${r.warehouseName}`} className="text-slate-700">
             <td className="py-2 px-3 font-bold">{r.productName}</td>
             <td className="py-2 px-3">{r.variantLabel ?? "—"}</td>
@@ -433,8 +439,10 @@ function InventoryReport() {
             <td className="py-2 px-3 text-slate-600">{money(r.sellingPrice)}</td>
             <td className="py-2 px-3 font-bold text-rose-600">{money(r.totalPurchaseCost)}</td>
             <td className="py-2 px-3 font-bold text-emerald-700">{money(r.totalSalesValue)}</td>
+            <td className="py-2 px-3 font-bold text-amber-600">{money(rowProfit)}</td>
           </tr>
-        ))}
+          );
+        })}
       </Table>
     </div>
   );

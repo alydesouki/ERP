@@ -323,11 +323,13 @@ The report table now includes the following columns:
 | Selling Price | سعر البيع | Effective selling price per unit = `COALESCE(variant.sellingPrice, product.basePrice)` |
 | **Total Purchase Cost** | **إجمالي تكلفة الشراء** | `quantity × effectiveCostPrice` — inventory book value at cost |
 | **Total Sales Value** | **إجمالي قيمة البيع** | `quantity × effectiveSellingPrice` — potential revenue if all stock is sold |
+| **Profit** | **الربح** | `Total Sales Value` - `Total Purchase Cost` — potential profit |
 
 **Summary stats:**
 - **إجمالي الكمية** — total units across all warehouses
 - **إجمالي تكلفة الشراء** — sum of `totalPurchaseCost` across all rows
 - **إجمالي قيمة البيع** — sum of `totalSalesValue` across all rows
+- **إجمالي الربح** — total potential profit (`إجمالي قيمة البيع` - `إجمالي تكلفة الشراء`)
 
 **Effective price logic (both cost and selling):**
 - If the variant has its own price override stored in `product_variants.costPrice` / `product_variants.sellingPrice`, that value is used.
