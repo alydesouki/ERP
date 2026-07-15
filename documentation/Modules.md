@@ -415,3 +415,115 @@ A partial unique index prevents duplicate active alerts per user per key. Readin
 - Require cash session for sales
 
 **Document Sequences:** Custom prefix and number padding per document type
+
+---
+
+## Module 15: Association Accounts (حسابات الجمعيات)
+
+**Page:** [`associations.tsx`](file:///d:/espp/ERP/artifacts/pos/src/pages/associations.tsx)  
+**API Route:** [`routes/associations.ts`](file:///d:/espp/ERP/artifacts/api-server/src/routes/associations.ts)  
+**Schema:** [`schema/associations.ts`](file:///d:/espp/ERP/lib/db/src/schema/associations.ts)  
+**Permissions:** `associations.view` / `associations.create` / `associations.edit` / `associations.transactions` / `associations.report`
+
+### Purpose
+Manage money withdrawn from the company's cash register to participate in savings associations (ROSCA / rotating savings groups). Withdrawals are treated as **receivables** (not expenses) so they do not affect profit/loss reports or create false cash shortages.
+
+### Accounting Logic
+| Operation | Treasury Effect | Association Effect |
+|---|---|---|
+| **Withdrawal** | Treasury OUT (cash leaves register) | Association receivable increases |
+| **Return** | Treasury IN (cash re-enters register) | Association receivable decreases |
+
+Association transactions are **never recorded as expenses**. The P&L report is unaffected.
+
+### Key Design Decisions
+- **No stored balance columns.** `totalWithdrawals`, `totalReturns`, and `balance` are always computed via aggregate queries from `association_transactions` to prevent data inconsistency.
+- **No deletes.** Financial records are immutable. Mistakes are corrected by posting a **Reverse Transaction** (opposite entry). The original row is marked `isReversed=true`; the reversal row carries `reversalOfId` pointing to the original. The complete audit trail is always preserved.
+- **Flexible contribution schedule.** `contributionFrequency` ∈ {DAILY, WEEKLY, MONTHLY, CUSTOM, NONE} with an optional `contributionAmount`.
+
+### Database Tables
+
+#### `associations`
+| Column | Type | Notes |
+|---|---|---|
+| id | text PK | UUID |
+| store_id | text FK | → stores |
+| name | text | Required, unique per store |
+| description | text | Optional |
+| start_date | text | YYYY-MM-DD |
+| end_date | text | Optional |
+| expected_return_date | text | Optional — when money expected back |
+| status | text | ACTIVE / CLOSED |
+| contribution_frequency | text | DAILY / WEEKLY / MONTHLY / CUSTOM / NONE |
+| contribution_amount | text | Optional decimal |
+| notes | text | Optional |
+| created_by | text FK | → users |
+| created_at | integer | timestamp_ms |
+| updated_at | integer | timestamp_ms |
+
+#### `association_transactions`
+| Column | Type | Notes |
+|---|---|---|
+| id | text PK | UUID |
+| store_id | text FK | → stores |
+| association_id | text FK | → associations |
+| type | text | WITHDRAWAL / RETURN |
+| amount | text | Decimal string |
+| transaction_date | text | YYYY-MM-DD |
+| treasury_account_id | text FK | → treasury_accounts |
+| reference_number | text | Optional |
+| notes | text | Optional |
+| is_reversed | integer | Boolean (0/1). True when this row is cancelled by a reversal |
+| reversal_of_id | text | FK → association_transactions (self). Null unless this IS a reversal |
+| created_by | text FK | → users |
+| created_at | integer | timestamp_ms |
+
+### API Endpoints
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| GET | `/associations` | `associations.view` | List all with computed summary |
+| POST | `/associations` | `associations.create` | Create a new association |
+| GET | `/associations/:id` | `associations.view` | Single association + computed summary |
+| PUT | `/associations/:id` | `associations.edit` | Update details or status |
+| GET | `/associations/:id/transactions` | `associations.transactions` | Paginated ledger with running balance |
+| POST | `/associations/:id/transactions` | `associations.transactions` | Record withdrawal or return |
+| POST | `/associations/:id/transactions/:txId/reverse` | `associations.transactions` | Reverse a transaction (never deletes) |
+| GET | `/associations/summary` | `associations.report` | Aggregate KPIs for dashboard |
+
+### Balance Formula
+```
+Current Balance = Total Withdrawals − Total Returns
+```
+- **Balance > 0** → The association owes money to the business (outstanding receivable)
+- **Balance = 0** → Fully settled
+- **Balance < 0** → Credit balance (association returned more than was withdrawn)
+
+### Frontend Tabs
+| Tab | Key | Description |
+|---|---|---|
+| الجمعيات | `associations` | CRUD table with status + summary; create/edit modals |
+| المعاملات | `transactions` | Per-association transaction log; new transaction + reverse modals |
+| التقرير | `report` | Aggregate report across all associations; filterable; printable |
+| كشف الحساب | `statement` | Per-association ledger with date-range filter and running balance column |
+
+### Dashboard Integration
+Four new KPI cards added to `GET /dashboard/kpis`:
+- **جمعيات نشطة** — count of ACTIVE associations
+- **إجمالي مسحوب للجمعيات** — total amount withdrawn across all associations
+- **إجمالي عائد من الجمعيات** — total amount returned
+- **رصيد الجمعيات المستحق** — net outstanding balance (Withdrawn − Returned)
+
+### Modified Files Summary
+| File | Change |
+|---|---|
+| `lib/db/src/schema/associations.ts` | **[NEW]** Two new DB tables |
+| `lib/db/src/schema/index.ts` | Export new schema |
+| `artifacts/api-server/src/routes/associations.ts` | **[NEW]** Full REST API |
+| `artifacts/api-server/src/routes/index.ts` | Register associations router |
+| `artifacts/api-server/src/routes/dashboard.ts` | Add 4 association KPIs |
+| `artifacts/pos/src/pages/associations.tsx` | **[NEW]** Full frontend page |
+| `artifacts/pos/src/components/app-shell.tsx` | Add nav link under المالية group |
+| `artifacts/pos/src/App.tsx` | Add `/associations` route |
+| `artifacts/pos/src/pages/dashboard.tsx` | Add 4 association KPI cards |
+| `documentation/Modules.md` | This documentation |

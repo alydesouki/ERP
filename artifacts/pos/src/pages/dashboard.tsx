@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   HandCoins,
   CreditCard,
+  UserCheck,
 } from "lucide-react";
 import {
   BarChart,
@@ -134,6 +135,30 @@ export function DashboardPage() {
       value: money(k?.supplierDebts),
       icon: <CreditCard size={22} className="text-slate-600" />,
       bg: "bg-slate-100 border-slate-200",
+    },
+    {
+      label: "جمعيات نشطة",
+      value: String(k?.activeAssociationsCount ?? 0),
+      icon: <UserCheck size={22} className="text-teal-600" />,
+      bg: "bg-teal-100 border-teal-200",
+    },
+    {
+      label: "إجمالي مسحوب للجمعيات",
+      value: money(k?.totalAssociationsWithdrawn),
+      icon: <HandCoins size={22} className="text-rose-500" />,
+      bg: "bg-rose-50 border-rose-200",
+    },
+    {
+      label: "إجمالي عائد من الجمعيات",
+      value: money(k?.totalAssociationsReturned),
+      icon: <HandCoins size={22} className="text-emerald-500" />,
+      bg: "bg-emerald-50 border-emerald-200",
+    },
+    {
+      label: "رصيد الجمعيات المستحق",
+      value: money(k?.totalAssociationsBalance),
+      icon: <Users size={22} className="text-amber-600" />,
+      bg: "bg-amber-50 border-amber-200",
     },
   ];
 

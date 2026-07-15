@@ -40,6 +40,7 @@ This is a **full-featured Point-of-Sale (POS) and ERP system** built specificall
 | 12 | **Accounting** | المحاسبة | Double-entry journal, chart of accounts |
 | 13 | **Reports** | التقارير | Sales, P&L, inventory, treasury, top products |
 | 14 | **Admin** | الإدارة | Users, roles, permissions, audit log, settings |
+| 15 | **Association Accounts** | حسابات الجمعيات | ROSCA savings group management; withdrawals tracked as receivables, not expenses |
 
 ---
 

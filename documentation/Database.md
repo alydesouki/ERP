@@ -115,6 +115,10 @@ erDiagram
     warehouse_transfers ||--o{ warehouse_transfer_items : "has"
 
     stock_counts ||--o{ stock_count_items : "has"
+
+    stores ||--o{ associations : "has"
+    associations ||--o{ association_transactions : "has"
+    treasury_accounts ||--o{ association_transactions : "funded_by"
 ```
 
 ---
@@ -521,6 +525,64 @@ Per-store, per-kind monotonic counters. Kinds: SALE, SALES_RETURN, PURCHASE, PUR
 
 ---
 
+### `associations` — Association Accounts Master
+
+> **New table** added as part of the Association Accounts module.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | text (UUID) | PK | Auto-generated UUID |
+| `store_id` | text | FK → stores RESTRICT, NOT NULL | Tenant identifier |
+| `name` | text | NOT NULL | Display name — unique per store |
+| `description` | text | | Optional description |
+| `start_date` | text | NOT NULL | Association start date (YYYY-MM-DD) |
+| `end_date` | text | | Optional planned end date |
+| `expected_return_date` | text | | When the business expects repayment |
+| `status` | text | NOT NULL, DEFAULT 'ACTIVE' | ACTIVE or CLOSED |
+| `contribution_frequency` | text | NOT NULL, DEFAULT 'NONE' | DAILY / WEEKLY / MONTHLY / CUSTOM / NONE |
+| `contribution_amount` | text | | Optional fixed contribution per cycle (decimal string) |
+| `notes` | text | | Optional notes |
+| `created_by` | text | FK → users RESTRICT | User who created the record |
+| `created_at` | integer (ms) | NOT NULL | Creation timestamp |
+| `updated_at` | integer (ms) | NOT NULL | Last modification timestamp |
+
+**Indexes:**
+- `associations_store_idx` on `(store_id, status)`
+- `associations_store_name_unique` — UNIQUE on `(store_id, name)`
+
+> **Design rule:** `balance`, `totalWithdrawals`, and `totalReturns` are NOT stored here. They are always computed via aggregate queries from `association_transactions`. Storing derived financial values would risk data inconsistency when transactions are reversed.
+
+---
+
+### `association_transactions` — Immutable Financial Ledger
+
+> **New table** added as part of the Association Accounts module.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | text (UUID) | PK | Auto-generated UUID |
+| `store_id` | text | FK → stores RESTRICT, NOT NULL | Tenant identifier |
+| `association_id` | text | FK → associations RESTRICT, NOT NULL | Parent association |
+| `type` | text | NOT NULL | WITHDRAWAL or RETURN |
+| `amount` | text | NOT NULL | Decimal string (e.g., "1500.00") |
+| `transaction_date` | text | NOT NULL | YYYY-MM-DD |
+| `treasury_account_id` | text | FK → treasury_accounts RESTRICT, NOT NULL | Which treasury account was debited/credited |
+| `reference_number` | text | | Optional external reference |
+| `notes` | text | | Optional notes |
+| `is_reversed` | integer (bool) | NOT NULL, DEFAULT 0 | True when this row has been cancelled by a reversal |
+| `reversal_of_id` | text | self-referential FK | Non-null only if this row IS a reversal; points to the original transaction |
+| `created_by` | text | FK → users RESTRICT | Recording user |
+| `created_at` | integer (ms) | NOT NULL | Creation timestamp |
+
+**Indexes:**
+- `assoc_tx_association_idx` on `(association_id, transaction_date)`
+- `assoc_tx_store_idx` on `(store_id, created_at)`
+- `assoc_tx_treasury_idx` on `(treasury_account_id)`
+
+> **Immutability rule:** Financial records are NEVER deleted. Corrections are applied via the reverse endpoint which posts an opposite-direction entry and sets `is_reversed=true` on the original. Both original and reversal are retained for a full audit trail.
+
+---
+
 ## Summary: All Tables
 
 | # | Table | Module | Type | Notes |
@@ -575,3 +637,5 @@ Per-store, per-kind monotonic counters. Kinds: SALE, SALES_RETURN, PURCHASE, PUR
 | 48 | notifications | Notifications | Operational | |
 | 49 | store_settings | Settings | Master | |
 | 50 | number_sequences | Settings | State | |
+| 51 | **associations** | **Association Accounts** | **Master** | **New module** |
+| 52 | **association_transactions** | **Association Accounts** | **Immutable Ledger** | **New module** |

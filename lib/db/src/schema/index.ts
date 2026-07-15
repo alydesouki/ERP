@@ -17,3 +17,4 @@ export * from "./finance";
 export * from "./inventory-extended";
 export * from "./notifications";
 export * from "./settings";
+export * from "./associations";

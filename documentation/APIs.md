@@ -372,6 +372,96 @@ Top-level response also includes:
 
 ---
 
+## Association Accounts (`/associations`)
+
+> **Purpose:** Manage money withdrawn from the company cash register to participate in savings associations (ROSCA). Withdrawals are receivables — not expenses — and are tracked independently of P&L.
+
+### Associations (Master)
+
+| Method | Route | Permission | Description |
+|---|---|---|---|
+| GET | `/associations` | `associations.view` | List all associations with computed summaries (balance, totalWithdrawals, totalReturns) |
+| POST | `/associations` | `associations.create` | Create a new association. Validates name uniqueness per store. Status defaults to ACTIVE. |
+| GET | `/associations/:id` | `associations.view` | Get single association with computed summary |
+| PUT | `/associations/:id` | `associations.edit` | Update association name, dates, status, or contribution details |
+
+#### `POST /associations` — Request Body
+```json
+{
+  "name": "string (required)",
+  "description": "string (optional)",
+  "startDate": "YYYY-MM-DD (required)",
+  "endDate": "YYYY-MM-DD (optional)",
+  "expectedReturnDate": "YYYY-MM-DD (optional)",
+  "contributionFrequency": "DAILY|WEEKLY|MONTHLY|CUSTOM|NONE (default: NONE)",
+  "contributionAmount": "decimal string (optional)",
+  "notes": "string (optional)"
+}
+```
+
+#### GET list/single response shape
+```json
+{
+  "id": "uuid",
+  "storeId": "uuid",
+  "name": "string",
+  "status": "ACTIVE|CLOSED",
+  "startDate": "YYYY-MM-DD",
+  "totalWithdrawals": 1500.00,
+  "totalReturns": 500.00,
+  "balance": 1000.00
+}
+```
+> `totalWithdrawals`, `totalReturns`, and `balance` are always computed from `association_transactions`. They are **never stored** on the associations row.
+
+### Association Transactions (Ledger)
+
+| Method | Route | Permission | Description |
+|---|---|---|---|
+| GET | `/associations/:id/transactions` | `associations.transactions` | Paginated transaction ledger for one association with running balance column |
+| POST | `/associations/:id/transactions` | `associations.transactions` | Record a WITHDRAWAL or RETURN. Posts a corresponding treasury movement automatically. |
+| POST | `/associations/:id/transactions/:txId/reverse` | `associations.transactions` | Reverse an existing transaction. Never deletes — posts an opposite entry and marks original `isReversed=true`. |
+
+#### `POST /associations/:id/transactions` — Request Body
+```json
+{
+  "type": "WITHDRAWAL|RETURN",
+  "amount": "decimal string",
+  "transactionDate": "YYYY-MM-DD (defaults to today)",
+  "treasuryAccountId": "uuid (required)",
+  "referenceNumber": "string (optional)",
+  "notes": "string (optional)"
+}
+```
+
+#### Accounting Effect of Each Transaction Type
+| Type | Treasury Effect | Balance Effect |
+|---|---|---|
+| WITHDRAWAL | Treasury OUT | Balance increases (more owed to store) |
+| RETURN | Treasury IN | Balance decreases |
+| Reversal of WITHDRAWAL | Treasury IN (opposite) | Balance decreases |
+| Reversal of RETURN | Treasury OUT (opposite) | Balance increases |
+
+### Association Summary (Dashboard KPIs)
+
+| Method | Route | Permission | Description |
+|---|---|---|---|
+| GET | `/associations/summary` | `associations.report` | Aggregate KPIs: active count, total withdrawn, total returned, net outstanding balance |
+
+#### Response shape
+```json
+{
+  "activeAssociationsCount": 3,
+  "totalWithdrawn": 15000.00,
+  "totalReturned": 8000.00,
+  "totalOutstandingBalance": 7000.00
+}
+```
+
+> **Important:** `/associations/summary` is registered **before** `/associations/:id` in the router. This ensures the literal `summary` segment is not parsed as an `:id` parameter.
+
+---
+
 ## Health (`/health` and `/healthz`)
 
 | Route | Auth | Response |

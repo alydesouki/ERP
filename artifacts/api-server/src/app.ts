@@ -99,7 +99,8 @@ app.use(
   ) => {
     req.log.error({ err }, "Unhandled error");
     if (res.headersSent) return;
-    res.status(500).json({ error: "حدث خطأ غير متوقع" });
+    const errorMessage = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
+    res.status(500).json({ error: "حدث خطأ غير متوقع", details: errorMessage });
   },
 );
 

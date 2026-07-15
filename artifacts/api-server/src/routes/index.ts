@@ -20,6 +20,7 @@ import reportsRouter from "./reports";
 import settingsRouter from "./settings";
 import notificationsRouter from "./notifications";
 import inventoryOpsRouter from "./inventory-ops";
+import associationsRouter from "./associations";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(reportsRouter);
 router.use(settingsRouter);
 router.use(notificationsRouter);
 router.use(inventoryOpsRouter);
+router.use(associationsRouter);
 
 export default router;

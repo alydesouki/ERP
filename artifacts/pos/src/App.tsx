@@ -30,6 +30,7 @@ import { PurchaseReturnsPage } from "@/pages/purchase-returns";
 import { SettingsPage } from "@/pages/settings";
 import { TransfersPage } from "@/pages/transfers";
 import { StockCountsPage } from "@/pages/stock-counts";
+import { AssociationsPage } from "@/pages/associations";
 import NotFound from "@/pages/not-found";
 
 // queryClient is defined in @/lib/query-client — it includes the generic
@@ -167,6 +168,11 @@ function AuthenticatedApp() {
         <Route path="/reports">
           <PermissionGate permission="reports.view">
             <ReportsPage />
+          </PermissionGate>
+        </Route>
+        <Route path="/associations">
+          <PermissionGate permission="associations.view">
+            <AssociationsPage />
           </PermissionGate>
         </Route>
         <Route path="/users">

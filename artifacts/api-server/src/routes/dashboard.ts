@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { AnalyticsService } from "../lib/analytics-service";
+import { and, eq, sql } from "drizzle-orm";
+import { db, associationsTable, associationTransactionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -54,6 +56,30 @@ router.get(
       .groupBy(inventoryItemsTable.variantId, productsTable.reorderPoint)
       .having(sql`sum(${inventoryItemsTable.quantity}) <= ${productsTable.reorderPoint}`);
 
+    // Association KPIs
+    const activeAssocRows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(associationsTable)
+      .where(and(eq(associationsTable.storeId, storeId), eq(associationsTable.status, "ACTIVE")));
+
+    const assocTotals = await db
+      .select({
+        type: associationTransactionsTable.type,
+        total: sql<number>`CAST(coalesce(sum(cast(${associationTransactionsTable.amount} as REAL)), 0) AS REAL)`,
+      })
+      .from(associationTransactionsTable)
+      .where(and(
+        eq(associationTransactionsTable.storeId, storeId),
+        eq(associationTransactionsTable.isReversed, false),
+      ))
+      .groupBy(associationTransactionsTable.type);
+
+    let assocWithdrawn = 0, assocReturned = 0;
+    for (const r of assocTotals) {
+      if (r.type === "WITHDRAWAL") assocWithdrawn = Number(r.total);
+      else assocReturned = Number(r.total);
+    }
+
     const netSales = (salesAgg.revenue ?? 0) - (returnAgg.total ?? 0);
     const cogs = (salesAgg.cost ?? 0) - (returnAgg.cost ?? 0);
     const todayProfit = netSales - cogs;
@@ -67,6 +93,10 @@ router.get(
       lowStockCount: lowStockRows.length,
       customerDebts: customerDebts,
       supplierDebts: supplierDebts,
+      activeAssociationsCount: Number(activeAssocRows[0]?.count ?? 0),
+      totalAssociationsWithdrawn: assocWithdrawn,
+      totalAssociationsReturned: assocReturned,
+      totalAssociationsBalance: assocWithdrawn - assocReturned,
     });
   },
 );

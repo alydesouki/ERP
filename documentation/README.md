@@ -25,6 +25,7 @@
 | [Modules.md](./Modules.md) | Every module: purpose, features, flows | ✅ Current |
 | [Performance-Review.md](./Performance-Review.md) | Bottlenecks, queries, recommendations | ✅ Current |
 | [Code-Audit.md](./Code-Audit.md) | Unused/duplicate/dead code analysis | ✅ Current |
+| [CHANGELOG.md](./CHANGELOG.md) | Release notes and change history | ✅ Current |
 
 ---
 
@@ -93,7 +94,7 @@ pnpm --filter @workspace/api-client-react exec tsc --build
 └─────────────────────────────────────────────────────────┘
 ```
 
-**14 functional modules** | **25 UI pages** | **22 API route files** | **50 DB tables** | **2 deployment modes**
+**15 functional modules** | **26 UI pages** | **23 API route files** | **52 DB tables** | **2 deployment modes**
 
 ---
 
@@ -104,7 +105,8 @@ pnpm --filter @workspace/api-client-react exec tsc --build
 3. **After editing `api.schemas.ts`** — rebuild `lib/api-client-react` dist before running TypeScript checks
 4. **New DB columns** — add to Drizzle schema AND update `lib/db/migrate-store-db.cjs` for production
 5. **Session secret** — auto-generated on first launch, persisted in `%APPDATA%/ShoeStorePOS/secret.key`
+6. **New DB tables (e.g., associations)** — after adding schema, run `$env:DATABASE_URL="..."; pnpm --filter @workspace/db run push` pointing to the actual production DB path, not the dev fallback.
 
 ---
 
-*Documentation updated to reflect the fully-implemented Electron desktop application and all feature fixes.*
+*Documentation updated to reflect the fully-implemented Electron desktop application, all feature fixes, and the new Association Accounts module.*

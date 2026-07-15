@@ -23,6 +23,7 @@ import {
   ArrowLeftRight,
   ClipboardList,
   ChevronDown,
+  HandCoins,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationBell } from "@/components/notification-bell";
@@ -86,6 +87,7 @@ const NAV_GROUPS: NavGroupDef[] = [
     items: [
       { path: "/treasury", label: "الخزينة", icon: <Wallet size={18} />, permission: "treasury.view" },
       { path: "/finance", label: "الشؤون المالية", icon: <Landmark size={18} />, anyOf: ["finance.view", "expenses.create"] },
+      { path: "/associations", label: "حسابات الجمعيات", icon: <HandCoins size={18} />, permission: "associations.view" },
     ],
   },
   {
