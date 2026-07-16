@@ -235,23 +235,36 @@ function readExternalHddSerials() {
         
         // If SerialNumber is null/empty, extract from PNPDeviceID
         if (!rawSerial && d.PNPDeviceID) {
-          const parts = d.PNPDeviceID.split("\\");
+          const parts = d.PNPDeviceID.split("\\\\");
           rawSerial = parts[parts.length - 1];
         }
 
-        // USB InterfaceType identifies external USB storage reliably
-        const isExternal = (d.InterfaceType || "").toUpperCase() === "USB";
+        const interfaceType = (d.InterfaceType || "").toUpperCase();
+        const mediaType = (d.MediaType || "").toUpperCase();
+        const pnpId = (d.PNPDeviceID || "").toUpperCase();
+        const model = (d.Model || "").toUpperCase();
+
+        // Detect external storage including USB, SCSI bridged enclosures, etc.
+        const isExternal = 
+          interfaceType === "USB" ||
+          mediaType.includes("EXTERNAL") ||
+          pnpId.includes("USBSTOR") ||
+          pnpId.includes("UASP") ||
+          model.includes("JMICRON") ||
+          model.includes("ASMEDIA") ||
+          model.includes("REALTEK");
+
         const normSerial = normalise(rawSerial);
         const selected = isExternal && !!normSerial;
 
         console.log(`Model         : ${d.Model || "N/A"}`);
-        console.log(`SerialNumber  : ${rawSerial || "N/A"} (Normalised: ${normSerial || "N/A"})`);
+        console.log(`DeviceID      : ${d.DeviceID || "N/A"}`);
         console.log(`InterfaceType : ${d.InterfaceType || "N/A"}`);
         console.log(`MediaType     : ${d.MediaType || "N/A"}`);
         console.log(`PNPDeviceID   : ${d.PNPDeviceID || "N/A"}`);
+        console.log(`SerialNumber  : ${rawSerial || "N/A"} (Normalised: ${normSerial || "N/A"})`);
         console.log(`Bus Type      : ${d.InterfaceType || "N/A"}`);
-        console.log(`Is External   : ${isExternal}`);
-        console.log(`Selected      : ${selected}`);
+        console.log(`Reason        : ${selected ? "Accepted (External HDD with valid serial)" : (isExternal ? "Rejected (No valid serial)" : "Rejected (Not recognized as external)")}`);
         console.log("---------------------------------------------------------");
 
         if (selected) {
@@ -271,7 +284,7 @@ function readExternalHddSerials() {
   // — Fallback: WMIC —
   try {
     const output = runWmic(
-      "diskdrive where \"InterfaceType='USB'\" get SerialNumber /value"
+      "diskdrive where \"InterfaceType='USB' OR MediaType='External hard disk media'\" get SerialNumber /value"
     );
     const matches = [...output.matchAll(/SerialNumber=(.+)/gi)];
     for (const m of matches) {

@@ -202,9 +202,12 @@ class ApplicationManager {
     this._log("info", "Starting API server", { entryPoint });
 
     return new Promise((resolve, reject) => {
-      this._apiProcess = spawn("node", ["--enable-source-maps", entryPoint], {
+      // Use Electron's bundled Node.js runtime instead of a system-installed Node.js executable.
+      // This ensures the application is completely self-contained and works on machines without Node.
+      this._apiProcess = spawn(process.execPath, ["--enable-source-maps", entryPoint], {
         env: {
           ...process.env,
+          ELECTRON_RUN_AS_NODE: "1",
           NODE_ENV: "production",
           PORT: String(API_PORT),
           DATABASE_URL: this._dbPath,
