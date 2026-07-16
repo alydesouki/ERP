@@ -47,3 +47,20 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# ── Licensing Security ──────────────────────────────────────────────────────
+# CRITICAL: Never commit the private key or any generated license files.
+# The private key must be stored separately and securely by the vendor.
+
+# Private key files — MUST NEVER be committed
+private.pem
+*.pem
+private-key.*
+
+# Generated license files — customer-specific, never store in repo
+license.dat
+license-generator/output/
+
+# License generator tool directory — keep out of ERP builds
+# (already excluded via electron-builder.yml !licensing/tools/**/* rule)
+artifacts/desktop/licensing/tools/

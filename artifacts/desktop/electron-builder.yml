@@ -18,6 +18,10 @@ files:
   - "managers/**/*"
   # App icon assets
   - "assets/**/*"
+  # Offline licensing system (public key + validation only; no private key)
+  - "licensing/**/*"
+  # Exclude the license generator tool — it must NEVER be bundled
+  - "!licensing/tools/**/*"
 
 # Extra resources copied outside the asar bundle so Node.js can require() them
 extraResources:

@@ -23,6 +23,9 @@ const { SessionManager } = require("./session-manager");
 const { MenuManager } = require("./menu-manager");
 const { ShortcutManager } = require("./shortcut-manager");
 
+// [LICENSING] ── License guard (must be required after Electron is ready)
+const { LicenseGuard } = require("../licensing/LicenseGuard");
+
 const API_PORT = 5001;
 const API_BASE = `http://localhost:${API_PORT}`;
 const HEALTH_URL = `${API_BASE}/api/healthz`;
@@ -73,6 +76,17 @@ class ApplicationManager {
    */
   async initialize() {
     this._log("info", "ApplicationManager initializing...");
+
+    // [LICENSING] ── Run hardware & license check before anything else.
+    // If this call returns, the license is valid and the ERP may proceed.
+    // On any failure it shows an error dialog and calls app.quit() internally.
+    const licenseGuard = new LicenseGuard({
+      appDataDir: this._appDataDir,
+      iconPath:   this._iconPath,
+      log:        this._log,
+    });
+    await licenseGuard.check();
+    // [/LICENSING]
 
     // 1. Get or generate session secret
     const sessionSecret = this._getOrCreateSecret();
