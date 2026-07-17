@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Undo2,
   Search,
@@ -57,6 +57,19 @@ export function SalesReturnsPage() {
 
   const [viewId, setViewId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [voidTerm, setVoidTerm] = useState<string | null>(null);
+
+  // Auto-open the create-return modal when navigated with ?void=INVOICE_NUMBER
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inv = params.get("void");
+    if (inv) {
+      setVoidTerm(inv);
+      setCreating(true);
+      // Clean the URL so back-navigation doesn't re-trigger
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   return (
     <div className="flex-1 overflow-auto p-6 lg:p-8">
@@ -147,7 +160,12 @@ export function SalesReturnsPage() {
       </div>
 
       {viewId && <ReturnDetailModal id={viewId} onClose={() => setViewId(null)} />}
-      {creating && <CreateReturnModal onClose={() => setCreating(false)} />}
+      {creating && (
+        <CreateReturnModal
+          initialTerm={voidTerm ?? undefined}
+          onClose={() => { setCreating(false); setVoidTerm(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -203,10 +221,16 @@ function ReturnDetailModal({ id, onClose }: { id: string; onClose: () => void })
   );
 }
 
-function CreateReturnModal({ onClose }: { onClose: () => void }) {
+function CreateReturnModal({
+  onClose,
+  initialTerm,
+}: {
+  onClose: () => void;
+  initialTerm?: string;
+}) {
   const queryClient = useQueryClient();
-  const [lookupTerm, setLookupTerm] = useState("");
-  const [submittedTerm, setSubmittedTerm] = useState("");
+  const [lookupTerm, setLookupTerm] = useState(initialTerm ?? "");
+  const [submittedTerm, setSubmittedTerm] = useState(initialTerm ?? "");
   const lookup = useLookupInvoice(
     { q: submittedTerm },
     {
@@ -225,6 +249,20 @@ function CreateReturnModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   const createReturn = useCreateSalesReturn();
+
+  // When invoice loads from a pre-filled term, pre-fill all available quantities
+  useEffect(() => {
+    if (invoice && initialTerm) {
+      const preset: Record<string, number> = {};
+      invoice.items.forEach((it) => {
+        const available = it.quantity - (it.returnedQuantity ?? 0);
+        if (available > 0) preset[it.id] = available;
+      });
+      setQuantities(preset);
+    }
+  // Only run once when invoice first resolves from the pre-filled term
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice?.id]);
 
   function setQty(itemId: string, value: number, max: number) {
     setQuantities((prev) => ({ ...prev, [itemId]: Math.max(0, Math.min(value, max)) }));

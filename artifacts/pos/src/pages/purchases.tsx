@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import {
   ShoppingBag,
   Search,
@@ -13,6 +14,8 @@ import {
   PackagePlus,
   List,
   UserPlus,
+  Pencil,
+  RotateCcw,
 } from "lucide-react";
 import {
   useListPurchases,
@@ -24,6 +27,7 @@ import {
   useSearchProducts,
   getSearchProductsQueryKey,
   useGetProduct,
+  useUpdatePurchase,
   ApiError,
   type Product,
   type ProductVariant,
@@ -33,6 +37,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/modal";
 import { QuickProductModal } from "@/components/quick-product-modal";
+import { useAuth } from "@/lib/auth";
 
 const CUR = "ج.م";
 
@@ -654,6 +659,10 @@ function PurchaseHistory() {
   const total = query.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const [viewId, setViewId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("purchases.edit");
+  const [, navigate] = useLocation();
 
   return (
     <div className="space-y-4">
@@ -708,13 +717,38 @@ function PurchaseHistory() {
                   <td className="p-4 text-left font-bold text-red-600">{Number(pur.remainingBalance) > 0 ? `${money(pur.remainingBalance)} ${CUR}` : "—"}</td>
                   <td className="p-4 text-center">{statusBadge(pur.status)}</td>
                   <td className="p-4 text-center">
-                    <button
-                      onClick={() => setViewId(pur.id)}
-                      className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"
-                      data-testid={`button-view-${pur.id}`}
-                    >
-                      <Eye size={18} />
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => setViewId(pur.id)}
+                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                        title="عرض التفاصيل"
+                        data-testid={`button-view-${pur.id}`}
+                      >
+                        <Eye size={18} />
+                      </button>
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={() => setEditId(pur.id)}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            title="تعديل بيانات الفاتورة"
+                            data-testid={`button-edit-${pur.id}`}
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          {pur.returnStatus !== "FULL" && (
+                            <button
+                              onClick={() => navigate(`/purchase-returns?voidId=${pur.id}`)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                              title="إلغاء فاتورة الشراء — إنشاء مرتجع كامل"
+                              data-testid={`button-void-${pur.id}`}
+                            >
+                              <RotateCcw size={16} />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -740,7 +774,109 @@ function PurchaseHistory() {
       </div>
 
       {viewId && <PurchaseDetailModal id={viewId} onClose={() => setViewId(null)} />}
+      {editId && <EditPurchaseModal id={editId} onClose={() => setEditId(null)} />}
     </div>
+  );
+}
+
+// ── Edit Purchase Metadata Modal ──────────────────────────────────────────────
+
+function EditPurchaseModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const query = useGetPurchase(id);
+  const pur = query.data;
+  const mutation = useUpdatePurchase();
+  const [notes, setNotes] = useState("");
+  const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState("");
+  const [initialized, setInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (pur && !initialized) {
+    setNotes(pur.notes ?? "");
+    setSupplierInvoiceNumber(pur.supplierInvoiceNumber ?? "");
+    setInitialized(true);
+  }
+
+  async function handleSave() {
+    setError(null);
+    try {
+      await mutation.mutateAsync({
+        id,
+        data: {
+          notes: notes || null,
+          supplierInvoiceNumber: supplierInvoiceNumber || null,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["/api/purchases/invoices"] });
+      onClose();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const data = err.data as { error?: string } | undefined;
+        setError(data?.error ?? "حدث خطأ أثناء الحفظ");
+      } else {
+        setError("حدث خطأ أثناء الحفظ");
+      }
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={pur ? `تعديل فاتورة شراء ${pur.invoiceNumber}` : "تعديل الفاتورة"} maxWidth="max-w-md">
+      {query.isLoading || !pur ? (
+        <div className="py-8 text-center text-slate-400">
+          <Loader2 className="animate-spin inline" size={24} />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">رقم فاتورة المورد</label>
+            <input
+              value={supplierInvoiceNumber}
+              onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
+              placeholder="رقم فاتورة المورد (اختياري)"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition text-sm"
+              data-testid="input-supplier-invoice-number"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">الملاحظات</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="ملاحظات على فاتورة الشراء..."
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition text-sm resize-none"
+              data-testid="input-purchase-notes"
+            />
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+            يمكن تعديل البيانات الوصفية فقط. لإلغاء الفاتورة، استخدم زر الإلغاء لإنشاء مرتجع كامل.
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>
+          )}
+
+          <div className="flex gap-3 justify-end pt-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={mutation.isPending}
+              className="flex items-center gap-2 px-6 py-2 bg-amber-500 text-slate-900 font-bold rounded-xl hover:bg-amber-400 transition disabled:opacity-50"
+              data-testid="button-save-purchase-edit"
+            >
+              {mutation.isPending ? <Loader2 className="animate-spin" size={16} /> : null}
+              حفظ
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 

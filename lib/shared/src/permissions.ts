@@ -35,6 +35,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: "sales.view", labelAr: "عرض جميع المبيعات" },
       { key: "sales.view_own", labelAr: "عرض المبيعات الخاصة فقط" },
       { key: "sales.return", labelAr: "مرتجعات المبيعات" },
+      { key: "sales.delete", labelAr: "حذف/إلغاء فاتورة مبيعات" },
     ],
   },
   {
@@ -92,6 +93,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: [
       { key: "finance.view", labelAr: "عرض المالية" },
       { key: "finance.manage", labelAr: "إدارة المصروفات والرواتب" },
+      { key: "finance.delete", labelAr: "حذف سجلات المالية" },
       { key: "expenses.create", labelAr: "إنشاء مصروف" },
     ],
   },

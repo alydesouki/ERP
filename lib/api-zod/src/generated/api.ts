@@ -2015,6 +2015,25 @@ export const CreateSaleResponse = zod.object({
 
 
 /**
+ * @summary Update invoice metadata (notes only)
+ */
+export const UpdateInvoiceBody = zod.object({
+  "notes": zod.string().nullish()
+})
+
+
+/**
+ * @summary Update purchase invoice metadata
+ */
+export const UpdatePurchaseBody = zod.object({
+  "notes": zod.string().nullish(),
+  "supplierInvoiceNumber": zod.string().nullish(),
+  "invoiceDate": zod.string().nullish(),
+  "dueDate": zod.string().nullish()
+})
+
+
+/**
  * @summary Find an invoice by number or barcode (for returns)
  */
 export const LookupInvoiceQueryParams = zod.object({

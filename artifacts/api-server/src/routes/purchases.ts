@@ -23,6 +23,7 @@ import {
   CreatePurchaseReturnBody,
   ListPurchasesQueryParams,
   ListPurchaseReturnsQueryParams,
+  UpdatePurchaseBody,
 } from "@workspace/api-zod";
 import { writeAuditLog } from "../lib/audit";
 import { ensureStoreFinancials, TREASURY_TYPE_TO_ACCOUNT_CODE } from "../lib/seed";
@@ -217,6 +218,65 @@ router.get(
       res.status(404).json({ error: "فاتورة الشراء غير موجودة" });
       return;
     }
+    res.json(detail);
+  },
+);
+
+// ===========================================================================
+// UPDATE PURCHASE — metadata only (notes, supplier invoice number, dates)
+// ===========================================================================
+
+router.patch(
+  "/purchases/invoices/:id",
+  requireAuth,
+  requirePermission("purchases.edit"),
+  async (req, res) => {
+    const parsed = UpdatePurchaseBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" });
+      return;
+    }
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params["id"]);
+
+    const [inv] = await db
+      .select({ id: purchaseInvoicesTable.id })
+      .from(purchaseInvoicesTable)
+      .where(and(eq(purchaseInvoicesTable.id, id), eq(purchaseInvoicesTable.storeId, storeId)))
+      .limit(1);
+    if (!inv) {
+      res.status(404).json({ error: "فاتورة الشراء غير موجودة" });
+      return;
+    }
+
+    const updates: Record<string, unknown> = {};
+    if (parsed.data.notes !== undefined) updates["notes"] = parsed.data.notes ?? null;
+    if (parsed.data.supplierInvoiceNumber !== undefined) updates["supplierInvoiceNumber"] = parsed.data.supplierInvoiceNumber ?? null;
+    if (parsed.data.invoiceDate !== undefined) updates["invoiceDate"] = parsed.data.invoiceDate ?? null;
+    if (parsed.data.dueDate !== undefined) updates["dueDate"] = parsed.data.dueDate ?? null;
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "لا توجد تغييرات" });
+      return;
+    }
+
+    await db
+      .update(purchaseInvoicesTable)
+      .set(updates)
+      .where(eq(purchaseInvoicesTable.id, id));
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "purchase.update_metadata",
+      entityType: "purchase_invoice",
+      entityId: id,
+      newValue: updates,
+      ipAddress: clientIp(req),
+    });
+
+    const detail = await loadPurchaseDetail(id, storeId);
     res.json(detail);
   },
 );
@@ -887,6 +947,61 @@ router.post(
       }
       throw err;
     }
+  },
+);
+
+// ── PATCH /purchases/invoices/:id — metadata edit ─────────────────────────────────
+
+router.patch(
+  "/purchases/invoices/:id",
+  requireAuth,
+  requirePermission("purchases.edit"),
+  async (req, res) => {
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params["id"]);
+
+    const { notes, supplierInvoiceNumber, invoiceDate, dueDate } = req.body as {
+      notes?: string | null;
+      supplierInvoiceNumber?: string | null;
+      invoiceDate?: string | null;
+      dueDate?: string | null;
+    };
+
+    const [pur] = await db
+      .select({ id: purchaseInvoicesTable.id })
+      .from(purchaseInvoicesTable)
+      .where(and(eq(purchaseInvoicesTable.id, id), eq(purchaseInvoicesTable.storeId, storeId)))
+      .limit(1);
+
+    if (!pur) {
+      res.status(404).json({ error: "فاتورة الشراء غير موجودة" });
+      return;
+    }
+
+    const updateSet: Record<string, unknown> = {};
+    if (notes !== undefined) updateSet["notes"] = notes;
+    if (supplierInvoiceNumber !== undefined) updateSet["supplierInvoiceNumber"] = supplierInvoiceNumber;
+    if (invoiceDate !== undefined) updateSet["invoiceDate"] = invoiceDate;
+    if (dueDate !== undefined) updateSet["dueDate"] = dueDate;
+
+    if (Object.keys(updateSet).length > 0) {
+      await db
+        .update(purchaseInvoicesTable)
+        .set(updateSet as any)
+        .where(eq(purchaseInvoicesTable.id, id));
+    }
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "purchase.edit",
+      entityType: "purchase_invoice",
+      entityId: id,
+      ipAddress: req.ip ?? null,
+    });
+
+    res.status(200).json({ id });
   },
 );
 

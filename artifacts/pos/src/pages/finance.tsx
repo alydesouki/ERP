@@ -20,6 +20,7 @@ import {
   useDeleteExpenseCategory,
   useListExpenses,
   useCreateExpense,
+  useDeleteExpense,
   useListEmployees,
   useCreateEmployee,
   useUpdateEmployee,
@@ -27,10 +28,13 @@ import {
   useListSalaries,
   useCreateSalary,
   usePaySalary,
+  useDeleteSalary,
   useListAdvances,
   useCreateAdvance,
+  useDeleteAdvance,
   useListEquityMovements,
   useCreateEquityMovement,
+  useDeleteEquityMovement,
   useListTreasuryAccounts,
   ApiError,
   type ExpenseCategory,
@@ -387,10 +391,13 @@ function CategoriesTab({ canManage }: { canManage: boolean }) {
 // ── Expenses ────────────────────────────────────────────────────────────────
 
 function ExpensesTab({ canManage }: { canManage: boolean }) {
+  const { hasPermission } = useAuth();
+  const canDelete = hasPermission("finance.delete");
   const queryClient = useQueryClient();
   const listQuery = useListExpenses({ page: 1, pageSize: 50 });
   const categoriesQuery = useListExpenseCategories();
   const createMutation = useCreateExpense();
+  const deleteMutation = useDeleteExpense();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [categoryId, setCategoryId] = useState("");
@@ -443,6 +450,27 @@ function ExpensesTab({ canManage }: { canManage: boolean }) {
     }
   }
 
+  const [pendingDeleteExpense, setPendingDeleteExpense] = useState<{
+    id: string;
+    desc: string | null;
+  } | null>(null);
+
+  async function handleDeleteExpense(id: string, desc: string | null) {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      void queryClient.invalidateQueries({ queryKey: ["/api/finance/expenses"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/expenses"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/profit-loss"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
+      setPendingDeleteExpense(null);
+    } catch (err) {
+      setPendingDeleteExpense(null);
+      // Surface error inside the list table via a brief re-render; no native alert
+      setError(apiErrorMessage(err, "تعذّر إلغاء المصروف."));
+    }
+  }
+
   return (
     <Card>
       <SectionHead
@@ -459,6 +487,7 @@ function ExpensesTab({ canManage }: { canManage: boolean }) {
               <th className="text-right font-bold px-6 py-3">الفئة</th>
               <th className="text-right font-bold px-6 py-3">البيان</th>
               <th className="text-right font-bold px-6 py-3">المبلغ</th>
+              {canDelete && <th className="text-left font-bold px-6 py-3">إجراء</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -468,6 +497,19 @@ function ExpensesTab({ canManage }: { canManage: boolean }) {
                 <td className="px-6 py-3 text-slate-700 font-medium">{x.categoryName ?? "—"}</td>
                 <td className="px-6 py-3 text-slate-500">{x.description ?? "—"}</td>
                 <td className="px-6 py-3 font-bold text-red-600">{money(x.amount)}</td>
+                {canDelete && (
+                  <td className="px-6 py-3">
+                    <button
+                      onClick={() => setPendingDeleteExpense({ id: x.id, desc: x.description ?? null })}
+                      disabled={deleteMutation.isPending}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="إلغاء المصروف (عكس الحركة)"
+                      data-testid={`button-delete-expense-${x.id}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -525,6 +567,16 @@ function ExpensesTab({ canManage }: { canManage: boolean }) {
           <SubmitButton busy={createMutation.isPending} label="تسجيل المصروف" />
         </form>
       </Modal>
+
+      {pendingDeleteExpense && (
+        <ConfirmModal
+          message={`إلغاء المصروف «${pendingDeleteExpense.desc ?? "مصروف"}»`}
+          detail="سيتم عكس حركة الخزينة والقيد المحاسبي بالكامل."
+          busy={deleteMutation.isPending}
+          onConfirm={() => void handleDeleteExpense(pendingDeleteExpense.id, pendingDeleteExpense.desc)}
+          onCancel={() => setPendingDeleteExpense(null)}
+        />
+      )}
     </Card>
   );
 }
@@ -739,8 +791,11 @@ function EmployeesTab({ canManage }: { canManage: boolean }) {
 // ── Salaries ────────────────────────────────────────────────────────────────
 
 function SalariesTab({ canManage }: { canManage: boolean }) {
+  const { hasPermission } = useAuth();
+  const canDelete = hasPermission("finance.delete");
   const queryClient = useQueryClient();
   const listQuery = useListSalaries({ page: 1, pageSize: 50 });
+  const deleteSalaryMutation = useDeleteSalary();
   const employeesQuery = useListEmployees();
   const createMutation = useCreateSalary();
   const payMutation = usePaySalary();
@@ -756,6 +811,10 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   const [payTarget, setPayTarget] = useState<SalaryRecord | null>(null);
+  const [pendingDeleteSalary, setPendingDeleteSalary] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
 
   const salaries = listQuery.data?.items ?? [];
   const employees = (employeesQuery.data ?? []).filter((e) => e.isActive);
@@ -858,7 +917,7 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
               <th className="text-right font-bold px-6 py-3">خصم أخرى</th>
               <th className="text-right font-bold px-6 py-3">الصافي</th>
               <th className="text-right font-bold px-6 py-3">الحالة</th>
-              {canManage && <th className="text-left font-bold px-6 py-3">إجراءات</th>}
+              {(canManage || canDelete) && <th className="text-left font-bold px-6 py-3">إجراءات</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -889,10 +948,10 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
                     </span>
                   )}
                 </td>
-                {canManage && (
+                {(canManage || canDelete) && (
                   <td className="px-6 py-3">
-                    <div className="flex items-center justify-end">
-                      {s.status === "PENDING" && (
+                    <div className="flex items-center justify-end gap-2">
+                      {canManage && s.status === "PENDING" && (
                         <button
                           onClick={() => setPayTarget(s)}
                           className="flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition"
@@ -900,6 +959,17 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
                         >
                           <CheckCircle2 size={14} />
                           صرف
+                        </button>
+                      )}
+                      {canDelete && s.status === "PENDING" && (
+                        <button
+                          onClick={() => setPendingDeleteSalary({ id: s.id, label: s.periodMonth })}
+                          disabled={deleteSalaryMutation.isPending}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          title="حذف الراتب المستحق"
+                          data-testid={`button-delete-salary-${s.id}`}
+                        >
+                          <Trash2 size={16} />
                         </button>
                       )}
                     </div>
@@ -1012,6 +1082,25 @@ function SalariesTab({ canManage }: { canManage: boolean }) {
           payMutation={payMutation}
         />
       )}
+
+      {pendingDeleteSalary && (
+        <ConfirmModal
+          message={`حذف راتب استحقاق ${pendingDeleteSalary.label}`}
+          detail="سيتم حذف سجل الراتب المعلق وعكس قيد الاستحقاق المحاسبي."
+          busy={deleteSalaryMutation.isPending}
+          onConfirm={async () => {
+            try {
+              await deleteSalaryMutation.mutateAsync({ id: pendingDeleteSalary.id });
+              void queryClient.invalidateQueries({ queryKey: ["/api/finance/salaries"] });
+              setPendingDeleteSalary(null);
+            } catch (err) {
+              setPendingDeleteSalary(null);
+              setError(apiErrorMessage(err, "تعذّر حذف الراتب."));
+            }
+          }}
+          onCancel={() => setPendingDeleteSalary(null)}
+        />
+      )}
     </Card>
   );
 }
@@ -1078,10 +1167,13 @@ function PaySalaryModal({
 // ── Advances ────────────────────────────────────────────────────────────────
 
 function AdvancesTab({ canManage }: { canManage: boolean }) {
+  const { hasPermission } = useAuth();
+  const canDelete = hasPermission("finance.delete");
   const queryClient = useQueryClient();
   const listQuery = useListAdvances({ page: 1, pageSize: 50 });
   const employeesQuery = useListEmployees();
   const createMutation = useCreateAdvance();
+  const deleteMutation = useDeleteAdvance();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState("");
@@ -1090,6 +1182,10 @@ function AdvancesTab({ canManage }: { canManage: boolean }) {
   const [treasuryAccountId, setTreasuryAccountId] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pendingDeleteAdvance, setPendingDeleteAdvance] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
 
   const advances = listQuery.data?.items ?? [];
   const employees = (employeesQuery.data ?? []).filter((e) => e.isActive);
@@ -1124,8 +1220,6 @@ function AdvancesTab({ canManage }: { canManage: boolean }) {
       void queryClient.invalidateQueries({ queryKey: ["/api/finance/advances"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/finance/employees"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
-      
-      // Real-time Reports Sync
       void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
       setModalOpen(false);
     } catch (err) {
@@ -1149,6 +1243,7 @@ function AdvancesTab({ canManage }: { canManage: boolean }) {
               <th className="text-right font-bold px-6 py-3">الموظف</th>
               <th className="text-right font-bold px-6 py-3">المبلغ</th>
               <th className="text-right font-bold px-6 py-3">ملاحظات</th>
+              {canDelete && <th className="text-left font-bold px-6 py-3">إجراء</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -1158,6 +1253,24 @@ function AdvancesTab({ canManage }: { canManage: boolean }) {
                 <td className="px-6 py-3 font-medium text-slate-700">{a.employeeName ?? "—"}</td>
                 <td className="px-6 py-3 font-bold text-amber-600">{money(a.amount)}</td>
                 <td className="px-6 py-3 text-slate-500">{a.notes ?? "—"}</td>
+                {canDelete && (
+                  <td className="px-6 py-3">
+                    <button
+                      onClick={() =>
+                        setPendingDeleteAdvance({
+                          id: a.id,
+                          label: `${a.employeeName ?? ""} — ${money(a.amount)}`,
+                        })
+                      }
+                      disabled={deleteMutation.isPending}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="إلغاء السلفة (عكس الحركة)"
+                      data-testid={`button-delete-advance-${a.id}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -1215,16 +1328,42 @@ function AdvancesTab({ canManage }: { canManage: boolean }) {
           <SubmitButton busy={createMutation.isPending} label="تسجيل السلفة" />
         </form>
       </Modal>
+
+      {pendingDeleteAdvance && (
+        <ConfirmModal
+          message={`إلغاء سلفة — ${pendingDeleteAdvance.label}`}
+          detail="سيتم عكس حركة الخزينة والقيد المحاسبي، وتقليل رصيد السلف للموظف."
+          busy={deleteMutation.isPending}
+          onConfirm={async () => {
+            try {
+              await deleteMutation.mutateAsync({ id: pendingDeleteAdvance.id });
+              void queryClient.invalidateQueries({ queryKey: ["/api/finance/advances"] });
+              void queryClient.invalidateQueries({ queryKey: ["/api/finance/employees"] });
+              void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+              void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
+              setPendingDeleteAdvance(null);
+            } catch (err) {
+              setPendingDeleteAdvance(null);
+              setError(apiErrorMessage(err, "تعذّر إلغاء السلفة."));
+            }
+          }}
+          onCancel={() => setPendingDeleteAdvance(null)}
+        />
+      )}
     </Card>
   );
 }
 
 // ── Equity Movements ────────────────────────────────────────────────────────
 
+
 function EquityTab({ canManage }: { canManage: boolean }) {
+  const { hasPermission } = useAuth();
+  const canDelete = hasPermission("finance.delete");
   const queryClient = useQueryClient();
   const listQuery = useListEquityMovements({ page: 1, pageSize: 50 });
   const createMutation = useCreateEquityMovement();
+  const deleteMutation = useDeleteEquityMovement();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [type, setType] = useState<"WITHDRAWAL" | "DEPOSIT">("DEPOSIT");
@@ -1233,6 +1372,10 @@ function EquityTab({ canManage }: { canManage: boolean }) {
   const [treasuryAccountId, setTreasuryAccountId] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pendingDeleteEquity, setPendingDeleteEquity] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
 
   const movements = listQuery.data?.items ?? [];
 
@@ -1286,6 +1429,7 @@ function EquityTab({ canManage }: { canManage: boolean }) {
               <th className="text-right font-bold px-6 py-3">النوع</th>
               <th className="text-right font-bold px-6 py-3">المبلغ</th>
               <th className="text-right font-bold px-6 py-3">البيان</th>
+              {canDelete && <th className="text-left font-bold px-6 py-3">إجراء</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -1314,6 +1458,24 @@ function EquityTab({ canManage }: { canManage: boolean }) {
                   {money(m.amount)}
                 </td>
                 <td className="px-6 py-3 text-slate-500">{m.description ?? "—"}</td>
+                {canDelete && (
+                  <td className="px-6 py-3">
+                    <button
+                      onClick={() =>
+                        setPendingDeleteEquity({
+                          id: m.id,
+                          label: `${m.type === "DEPOSIT" ? "إيداع" : "سحب"} — ${money(m.amount)}`,
+                        })
+                      }
+                      disabled={deleteMutation.isPending}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="إلغاء الحركة (عكس الخزينة والقيد)"
+                      data-testid={`button-delete-equity-${m.id}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -1367,6 +1529,74 @@ function EquityTab({ canManage }: { canManage: boolean }) {
           <SubmitButton busy={createMutation.isPending} label="تسجيل الحركة" />
         </form>
       </Modal>
+
+      {pendingDeleteEquity && (
+        <ConfirmModal
+          message={`إلغاء حركة المالك (${pendingDeleteEquity.label})`}
+          detail="سيتم عكس حركة الخزينة والقيد المحاسبي بالكامل."
+          busy={deleteMutation.isPending}
+          onConfirm={async () => {
+            try {
+              await deleteMutation.mutateAsync({ id: pendingDeleteEquity.id });
+              void queryClient.invalidateQueries({ queryKey: ["/api/finance/equity-movements"] });
+              void queryClient.invalidateQueries({ queryKey: ["/api/treasury/accounts"] });
+              void queryClient.invalidateQueries({ queryKey: ["/api/reports/treasury"] });
+              setPendingDeleteEquity(null);
+            } catch (err) {
+              setPendingDeleteEquity(null);
+              setError(apiErrorMessage(err, "تعذّر إلغاء الحركة."));
+            }
+          }}
+          onCancel={() => setPendingDeleteEquity(null)}
+        />
+      )}
     </Card>
+  );
+}
+
+// ── Shared: Confirm Modal ─────────────────────────────────────────────
+
+function ConfirmModal({
+  message,
+  detail,
+  onConfirm,
+  onCancel,
+  busy,
+}: {
+  message: string;
+  detail?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <Modal open onClose={onCancel} title="تأكيد العملية" maxWidth="max-w-sm">
+      <div className="space-y-4">
+        <p className="text-slate-700 font-medium text-sm">{message}</p>
+        {detail && (
+          <p className="text-slate-500 text-xs bg-slate-50 rounded-xl p-3 border border-slate-100">
+            {detail}
+          </p>
+        )}
+        <div className="flex gap-3 justify-end pt-2">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-50"
+          >
+            لا، إلغاء
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex items-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition disabled:opacity-50"
+            data-testid="button-confirm-delete"
+          >
+            {busy && <Loader2 className="animate-spin" size={16} />}
+            تأكيد الإلغاء
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }

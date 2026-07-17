@@ -1230,4 +1230,400 @@ router.post(
   },
 );
 
+
+// ── Delete / Reverse Expense ─────────────────────────────────────────────────
+
+router.delete(
+  "/finance/expenses/:id",
+  requireAuth,
+  requirePermission("finance.delete"),
+  async (req, res) => {
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params["id"]);
+
+    await ensureStoreFinancials(db, storeId);
+
+    try {
+      await db.transaction(async (tx) => {
+        const [exp] = await tx
+          .select({
+            id: expensesTable.id,
+            amount: expensesTable.amount,
+            treasuryAccountId: expensesTable.treasuryAccountId,
+            description: expensesTable.description,
+          })
+          .from(expensesTable)
+          .where(and(eq(expensesTable.id, id), eq(expensesTable.storeId, storeId)))
+          .limit(1);
+        if (!exp) throw new Error("EXPENSE_NOT_FOUND");
+
+        const [drawer] = await tx
+          .select({ id: treasuryAccountsTable.id, type: treasuryAccountsTable.type })
+          .from(treasuryAccountsTable)
+          .where(eq(treasuryAccountsTable.id, exp.treasuryAccountId))
+          .limit(1);
+        if (!drawer) throw new Error("TREASURY_ACCOUNT_NOT_FOUND");
+
+        const amount = toNum(exp.amount);
+
+        // Reverse treasury: post IN to cancel the original OUT.
+        await postTreasuryTransaction(tx, {
+          storeId,
+          treasuryAccountId: drawer.id,
+          direction: "IN",
+          amount,
+          referenceType: "EXPENSE_REVERSAL",
+          referenceId: exp.id,
+          description: `إلغاء مصروف: ${exp.description ?? ""}`,
+          userId,
+        });
+
+        // Reverse journal: Dr. Treasury Account / Cr. Operating Expenses (5100).
+        await postJournalEntry(tx, {
+          storeId,
+          userId,
+          description: `إلغاء مصروف: ${exp.description ?? ""}`,
+          referenceType: "EXPENSE_REVERSAL",
+          referenceId: exp.id,
+          lines: [
+            { code: TREASURY_TYPE_TO_ACCOUNT_CODE[drawer.type], debit: amount },
+            { code: "5100", credit: amount },
+          ],
+        });
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === "EXPENSE_NOT_FOUND") {
+        res.status(404).json({ error: "المصروف غير موجود" });
+        return;
+      }
+      if (err instanceof Error && err.message === "TREASURY_ACCOUNT_NOT_FOUND") {
+        res.status(404).json({ error: "حساب الخزينة غير موجود" });
+        return;
+      }
+      throw err;
+    }
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "expense.reverse",
+      entityType: "expense",
+      entityId: id,
+      ipAddress: clientIp(req),
+    });
+
+    res.status(204).end();
+  },
+);
+
+// ── Delete Salary (PENDING only) ─────────────────────────────────────────────
+
+router.delete(
+  "/finance/salaries/:id",
+  requireAuth,
+  requirePermission("finance.delete"),
+  async (req, res) => {
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params["id"]);
+
+    await ensureStoreFinancials(db, storeId);
+
+    try {
+      await db.transaction(async (tx) => {
+        const [rec] = await tx
+          .select({
+            id: salaryRecordsTable.id,
+            status: salaryRecordsTable.status,
+            baseSalary: salaryRecordsTable.baseSalary,
+            bonuses: salaryRecordsTable.bonuses,
+            periodMonth: salaryRecordsTable.periodMonth,
+          })
+          .from(salaryRecordsTable)
+          .where(and(eq(salaryRecordsTable.id, id), eq(salaryRecordsTable.storeId, storeId)))
+          .limit(1);
+        if (!rec) throw new Error("SALARY_NOT_FOUND");
+        if (rec.status === "PAID") throw new Error("ALREADY_PAID");
+
+        const gross = toNum(rec.baseSalary) + toNum(rec.bonuses);
+
+        // Reverse the accrual journal: Dr. Salaries Payable (2100) / Cr. Salary Expense (5200).
+        if (gross > 0) {
+          await postJournalEntry(tx, {
+            storeId,
+            userId,
+            description: `إلغاء استحقاق راتب ${rec.periodMonth}`,
+            referenceType: "SALARY_REVERSAL",
+            referenceId: rec.id,
+            lines: [
+              { code: "2100", debit: gross },
+              { code: "5200", credit: gross },
+            ],
+          });
+        }
+
+        // Hard delete the PENDING salary record (no treasury touched yet).
+        await tx.delete(salaryRecordsTable).where(eq(salaryRecordsTable.id, id));
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === "SALARY_NOT_FOUND") {
+        res.status(404).json({ error: "سجل الراتب غير موجود" });
+        return;
+      }
+      if (err instanceof Error && err.message === "ALREADY_PAID") {
+        res.status(400).json({ error: "لا يمكن حذف راتب مدفوع" });
+        return;
+      }
+      throw err;
+    }
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "salary.delete",
+      entityType: "salary_record",
+      entityId: id,
+      ipAddress: clientIp(req),
+    });
+
+    res.status(204).end();
+  },
+);
+
+// ── Delete / Reverse Employee Advance ────────────────────────────────────────
+
+router.delete(
+  "/finance/advances/:id",
+  requireAuth,
+  requirePermission("finance.delete"),
+  async (req, res) => {
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params["id"]);
+
+    await ensureStoreFinancials(db, storeId);
+
+    try {
+      await db.transaction(async (tx) => {
+        const [adv] = await tx
+          .select({
+            id: employeeAdvancesTable.id,
+            employeeId: employeeAdvancesTable.employeeId,
+            amount: employeeAdvancesTable.amount,
+            treasuryAccountId: employeeAdvancesTable.treasuryAccountId,
+            notes: employeeAdvancesTable.notes,
+          })
+          .from(employeeAdvancesTable)
+          .where(and(eq(employeeAdvancesTable.id, id), eq(employeeAdvancesTable.storeId, storeId)))
+          .limit(1);
+        if (!adv) throw new Error("ADVANCE_NOT_FOUND");
+
+        const [employee] = await tx
+          .select({ id: employeesTable.id, advanceBalance: employeesTable.advanceBalance })
+          .from(employeesTable)
+          .where(eq(employeesTable.id, adv.employeeId))
+          .limit(1);
+        if (!employee) throw new Error("EMPLOYEE_NOT_FOUND");
+
+        const [drawer] = await tx
+          .select({ id: treasuryAccountsTable.id, type: treasuryAccountsTable.type })
+          .from(treasuryAccountsTable)
+          .where(eq(treasuryAccountsTable.id, adv.treasuryAccountId))
+          .limit(1);
+        if (!drawer) throw new Error("TREASURY_ACCOUNT_NOT_FOUND");
+
+        const amount = toNum(adv.amount);
+        const currentBalance = toNum(employee.advanceBalance);
+
+        if (currentBalance < amount) {
+          throw new Error("ADVANCE_PARTIALLY_RECOVERED");
+        }
+
+        // Reverse treasury: IN to cancel the original OUT.
+        await postTreasuryTransaction(tx, {
+          storeId,
+          treasuryAccountId: drawer.id,
+          direction: "IN",
+          amount,
+          referenceType: "SALARY",
+          referenceId: adv.id,
+          description: `إلغاء سلفة: ${adv.notes ?? "سلفة موظف"}`,
+          userId,
+        });
+
+        // Reverse journal: Dr. Treasury / Cr. Employee Receivable (1300).
+        await postJournalEntry(tx, {
+          storeId,
+          userId,
+          description: "إلغاء سلفة موظف",
+          referenceType: "SALARY_REVERSAL",
+          referenceId: adv.id,
+          lines: [
+            { code: TREASURY_TYPE_TO_ACCOUNT_CODE[drawer.type], debit: amount },
+            { code: "1300", credit: amount },
+          ],
+        });
+
+        // Decrement employee advance balance.
+        await tx
+          .update(employeesTable)
+          .set({ advanceBalance: money(currentBalance - amount) })
+          .where(eq(employeesTable.id, employee.id));
+
+        // Hard delete the advance row.
+        await tx.delete(employeeAdvancesTable).where(eq(employeeAdvancesTable.id, id));
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === "ADVANCE_NOT_FOUND") {
+        res.status(404).json({ error: "السلفة غير موجودة" });
+        return;
+      }
+      if (err instanceof Error && err.message === "ADVANCE_PARTIALLY_RECOVERED") {
+        res.status(400).json({ error: "لا يمكن حذف السلفة لأنه تم استرداد جزء منها من راتب سابق" });
+        return;
+      }
+      if (err instanceof Error && err.message === "EMPLOYEE_NOT_FOUND") {
+        res.status(404).json({ error: "الموظف غير موجود" });
+        return;
+      }
+      if (err instanceof Error && err.message === "TREASURY_ACCOUNT_NOT_FOUND") {
+        res.status(404).json({ error: "حساب الخزينة غير موجود" });
+        return;
+      }
+      throw err;
+    }
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "advance.delete",
+      entityType: "employee_advance",
+      entityId: id,
+      ipAddress: clientIp(req),
+    });
+
+    res.status(204).end();
+  },
+);
+
+// ── Delete / Reverse Equity Movement ─────────────────────────────────────────
+
+router.delete(
+  "/finance/equity-movements/:id",
+  requireAuth,
+  requirePermission("finance.delete"),
+  async (req, res) => {
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params["id"]);
+
+    await ensureStoreFinancials(db, storeId);
+
+    try {
+      await db.transaction(async (tx) => {
+        const [mov] = await tx
+          .select({
+            id: equityMovementsTable.id,
+            type: equityMovementsTable.type,
+            amount: equityMovementsTable.amount,
+            treasuryAccountId: equityMovementsTable.treasuryAccountId,
+            description: equityMovementsTable.description,
+          })
+          .from(equityMovementsTable)
+          .where(and(eq(equityMovementsTable.id, id), eq(equityMovementsTable.storeId, storeId)))
+          .limit(1);
+        if (!mov) throw new Error("MOVEMENT_NOT_FOUND");
+
+        const [drawer] = await tx
+          .select({ id: treasuryAccountsTable.id, type: treasuryAccountsTable.type })
+          .from(treasuryAccountsTable)
+          .where(eq(treasuryAccountsTable.id, mov.treasuryAccountId))
+          .limit(1);
+        if (!drawer) throw new Error("TREASURY_ACCOUNT_NOT_FOUND");
+
+        const amount = toNum(mov.amount);
+        const treasuryCode = TREASURY_TYPE_TO_ACCOUNT_CODE[drawer.type];
+
+        if (mov.type === "WITHDRAWAL") {
+          // Original was treasury OUT; reverse with treasury IN.
+          await postTreasuryTransaction(tx, {
+            storeId,
+            treasuryAccountId: drawer.id,
+            direction: "IN",
+            amount,
+            referenceType: "WITHDRAWAL_REVERSAL",
+            referenceId: mov.id,
+            description: `إلغاء مسحوبات: ${mov.description ?? "مسحوبات المالك"}`,
+            userId,
+          });
+          await postJournalEntry(tx, {
+            storeId,
+            userId,
+            description: "إلغاء مسحوبات المالك",
+            referenceType: "WITHDRAWAL_REVERSAL",
+            referenceId: mov.id,
+            lines: [
+              { code: treasuryCode, debit: amount },
+              { code: "3100", credit: amount },
+            ],
+          });
+        } else {
+          // DEPOSIT: original was treasury IN; reverse with treasury OUT.
+          await postTreasuryTransaction(tx, {
+            storeId,
+            treasuryAccountId: drawer.id,
+            direction: "OUT",
+            amount,
+            referenceType: "DEPOSIT_REVERSAL",
+            referenceId: mov.id,
+            description: `إلغاء إيداع: ${mov.description ?? "إيداع رأس مال"}`,
+            userId,
+            allowNegative: true,
+          });
+          await postJournalEntry(tx, {
+            storeId,
+            userId,
+            description: "إلغاء إيداع رأس مال",
+            referenceType: "DEPOSIT_REVERSAL",
+            referenceId: mov.id,
+            lines: [
+              { code: "3000", debit: amount },
+              { code: treasuryCode, credit: amount },
+            ],
+          });
+        }
+
+        // Hard delete the equity movement row.
+        await tx.delete(equityMovementsTable).where(eq(equityMovementsTable.id, id));
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === "MOVEMENT_NOT_FOUND") {
+        res.status(404).json({ error: "الحركة غير موجودة" });
+        return;
+      }
+      if (err instanceof Error && err.message === "TREASURY_ACCOUNT_NOT_FOUND") {
+        res.status(404).json({ error: "حساب الخزينة غير موجود" });
+        return;
+      }
+      if (err instanceof Error && err.message === "INSUFFICIENT_TREASURY") {
+        res.status(400).json({ error: "رصيد الخزينة غير كافٍ لإلغاء الإيداع" });
+        return;
+      }
+      throw err;
+    }
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "equity.delete",
+      entityType: "equity_movement",
+      entityId: id,
+      ipAddress: clientIp(req),
+    });
+
+    res.status(204).end();
+  },
+);
+
 export default router;

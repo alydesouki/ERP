@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Undo2, Search, Loader2, Eye, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import {
   useListPurchaseReturns,
@@ -49,6 +49,18 @@ export function PurchaseReturnsPage() {
 
   const [viewId, setViewId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [voidPurchaseId, setVoidPurchaseId] = useState<string | null>(null);
+
+  // Auto-open the create-return modal when navigated with ?voidId=PURCHASE_ID
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get("voidId");
+    if (pid) {
+      setVoidPurchaseId(pid);
+      setCreating(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   return (
     <div className="flex-1 overflow-auto p-6 lg:p-8">
@@ -127,7 +139,12 @@ export function PurchaseReturnsPage() {
       </div>
 
       {viewId && <ReturnDetailModal id={viewId} onClose={() => setViewId(null)} />}
-      {creating && <CreateReturnModal onClose={() => setCreating(false)} />}
+      {creating && (
+        <CreateReturnModal
+          initialPurchaseId={voidPurchaseId ?? undefined}
+          onClose={() => { setCreating(false); setVoidPurchaseId(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -183,17 +200,23 @@ function ReturnDetailModal({ id, onClose }: { id: string; onClose: () => void })
   );
 }
 
-function CreateReturnModal({ onClose }: { onClose: () => void }) {
+function CreateReturnModal({
+  onClose,
+  initialPurchaseId,
+}: {
+  onClose: () => void;
+  initialPurchaseId?: string;
+}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialPurchaseId ?? null);
 
   const listQuery = useListPurchases(
     { page: 1, pageSize: 10, search: submitted || undefined },
     {
       query: {
-        enabled: submitted.trim().length > 0,
+        enabled: submitted.trim().length > 0 && !selectedId,
         queryKey: getListPurchasesQueryKey({ page: 1, pageSize: 10, search: submitted || undefined }),
       },
     },
@@ -211,6 +234,20 @@ function CreateReturnModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   const createReturn = useCreatePurchaseReturn();
+
+  // When purchase loads from a pre-selected ID, pre-fill all returnable quantities
+  useEffect(() => {
+    if (purchase && initialPurchaseId) {
+      const preset: Record<string, number> = {};
+      purchase.items.forEach((it) => {
+        const available = it.quantity - (it.returnedQuantity ?? 0);
+        if (available > 0) preset[it.id] = available;
+      });
+      setQuantities(preset);
+    }
+  // Only run once when purchase first resolves
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchase?.id]);
 
   function setQty(itemId: string, value: number, max: number) {
     setQuantities((prev) => ({ ...prev, [itemId]: Math.max(0, Math.min(value, max)) }));

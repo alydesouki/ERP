@@ -26,6 +26,7 @@ import {
   ListSalesReturnsQueryParams,
   LookupInvoiceQueryParams,
   CreateSuspendedOrderBody,
+  UpdateInvoiceBody,
 } from "@workspace/api-zod";
 import { writeAuditLog } from "../lib/audit";
 import { ensureStoreFinancials, TREASURY_TYPE_TO_ACCOUNT_CODE } from "../lib/seed";
@@ -255,6 +256,54 @@ router.get(
       res.status(404).json({ error: "الفاتورة غير موجودة" });
       return;
     }
+    res.json(detail);
+  },
+);
+
+// ===========================================================================
+// UPDATE SALE INVOICE — metadata only (notes)
+// ===========================================================================
+
+router.patch(
+  "/sales/invoices/:id",
+  requireAuth,
+  requirePermission("sales.delete"),
+  async (req, res) => {
+    const parsed = UpdateInvoiceBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" });
+      return;
+    }
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params["id"]);
+
+    const [inv] = await db
+      .select({ id: invoicesTable.id })
+      .from(invoicesTable)
+      .where(and(eq(invoicesTable.id, id), eq(invoicesTable.storeId, storeId)))
+      .limit(1);
+    if (!inv) {
+      res.status(404).json({ error: "الفاتورة غير موجودة" });
+      return;
+    }
+
+    await db
+      .update(invoicesTable)
+      .set({ notes: parsed.data.notes ?? null })
+      .where(eq(invoicesTable.id, id));
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "sale.update_notes",
+      entityType: "invoice",
+      entityId: id,
+      newValue: { notes: parsed.data.notes },
+      ipAddress: clientIp(req),
+    });
+
+    const detail = await loadInvoiceDetail(id, storeId);
     res.json(detail);
   },
 );
@@ -1053,6 +1102,52 @@ router.delete(
     }
     await db.delete(suspendedOrdersTable).where(eq(suspendedOrdersTable.id, existing.id));
     res.status(204).end();
+  },
+);
+
+// ── PATCH /sales/invoices/:id — notes-only edit ──────────────────────────────────
+
+router.patch(
+  "/sales/invoices/:id",
+  requireAuth,
+  requirePermission("sales.delete"),
+  async (req, res) => {
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params["id"]);
+
+    const body = UpdateInvoiceBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: "بيانات غير صالحة", details: body.error.flatten() });
+      return;
+    }
+
+    const [inv] = await db
+      .select({ id: invoicesTable.id })
+      .from(invoicesTable)
+      .where(and(eq(invoicesTable.id, id), eq(invoicesTable.storeId, storeId)))
+      .limit(1);
+
+    if (!inv) {
+      res.status(404).json({ error: "الفاتورة غير موجودة" });
+      return;
+    }
+
+    await db
+      .update(invoicesTable)
+      .set({ notes: body.data.notes })
+      .where(eq(invoicesTable.id, id));
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "invoice.edit",
+      entityType: "invoice",
+      entityId: id,
+      ipAddress: req.ip ?? null,
+    });
+
+    res.status(200).json({ id });
   },
 );
 
