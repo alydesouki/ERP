@@ -153,19 +153,15 @@ export const PRINT_DOCUMENT_STYLES = `
   max-height: 1.3em;
 }
 
-.barcode-label .label-barcode-svg-wrap {
-  flex: 1 1 auto;
+.barcode-label .label-barcode-area {
   width: 100%;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  min-height: 0;
+  flex-shrink: 0;
 }
 
 .barcode-label .label-barcode-svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
 }
 
 .barcode-label .label-sku {

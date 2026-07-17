@@ -93,9 +93,7 @@ const MM_TO_PX = 3.779528;
 
 function BarcodeDisplay({
   value,
-  widthPx,
   heightMm = 10,
-  forPrint = false,
 }: {
   value: string;
   widthPx?: number;
@@ -110,21 +108,29 @@ function BarcodeDisplay({
       const isEAN13 = /^\d{13}$/.test(barcodeValue);
       JsBarcode(ref.current, barcodeValue, {
         format: isEAN13 ? "EAN13" : "CODE128",
+        width: 1.5,
         /*
-         * barWidth: narrower bar → more bars fit in limited label width.
-         * For tiny labels (<= 30mm wide) we use 1.0, otherwise 1.2.
+         * height sets the bar height inside the viewBox.
+         * After JsBarcode runs we remove the fixed width/height attributes
+         * and set preserveAspectRatio="none" so that CSS width:100%/height:100%
+         * stretches the barcode to fill whatever container it is placed in.
          */
-        width: forPrint ? (widthPx && widthPx < 30 * MM_TO_PX ? 1.0 : 1.2) : 1.2,
-        height: heightMm * (forPrint ? 3.779528 : 1.5),
+        height: Math.round(heightMm * MM_TO_PX),
         displayValue: false,
-        margin: 2,
+        margin: 10,
         background: "transparent",
       });
+      // Remove fixed pixel dimensions so CSS controls sizing via the viewBox
+      ref.current.removeAttribute("width");
+      ref.current.removeAttribute("height");
+      // Allow the SVG to stretch non-uniformly to fill the container exactly
+      ref.current.setAttribute("preserveAspectRatio", "none");
     } catch {
       // invalid barcode — silent fail
     }
-  }, [value, widthPx, heightMm, forPrint]);
-  return <svg ref={ref} style={{ display: "block", width: "100%", height: "auto" }} />;
+  }, [value, heightMm]);
+  // width:100% fills parent; height:100% fills the fixed-height container
+  return <svg ref={ref} style={{ display: "block", width: "100%", height: "100%" }} />;
 }
 
 // ── Screen Preview Label ──────────────────────────────────────────────────────
@@ -156,8 +162,13 @@ function LabelPreview({
     : null;
 
   const isSmall = dims.wMm <= 30;
-  // Product name font scales with label width: 0.18pt per mm, clamped to [6pt, 16pt]
+  // Product name font scales with label width: 0.18pt per mm, clamped [6pt, 16pt]
   const nameFontSize = `${Math.max(6, Math.min(16, Math.round(dims.wMm * 0.18)))}pt`;
+
+  // Barcode area: 40% of label height, min 4mm, max 18mm
+  const barcodeAreaMm = Math.max(4, Math.min(dims.hMm * 0.40, 18));
+  // Scale to screen preview pixels (2× mm)
+  const barcodeAreaPx = barcodeAreaMm * previewScale;
 
   return (
     <div
@@ -206,8 +217,13 @@ function LabelPreview({
         {productName}
       </div>
 
-      <div style={{ width: "100%", flex: "1 1 auto", display: "flex", alignItems: "center", overflow: "hidden" }}>
-        <BarcodeDisplay value={variant.barcode} widthPx={previewW} heightMm={Math.max(4, dims.hMm * 0.35)} />
+      {/*
+       * Fixed-height barcode container (40% of label height).
+       * BarcodeDisplay fills it with width:100% height:100%.
+       * flexShrink:0 prevents it from shrinking with space-between.
+       */}
+      <div style={{ width: "100%", height: barcodeAreaPx, flexShrink: 0 }}>
+        <BarcodeDisplay value={variant.barcode} heightMm={barcodeAreaMm} />
       </div>
 
       <div style={{ fontSize: isSmall ? 6 : 7, fontFamily: "monospace", textAlign: "center", letterSpacing: 0.5 }}>
@@ -249,9 +265,13 @@ function PrintableLabel({
   const isTiny  = dims.wMm <= 20;
 
   // Product name font scales with label width: 0.18pt per mm, clamped to [6pt, 16pt].
-  // This ensures the name is always clearly readable on large labels (e.g. 100×50mm)
-  // and not oversized on tiny labels (e.g. 20×10mm).
   const nameFontSize = `${Math.max(6, Math.min(16, Math.round(dims.wMm * 0.18)))}pt`;
+
+  // Barcode container height: 40% of label height, min 4mm, max 18mm.
+  // Using a FIXED height (not flex-grow) ensures:
+  //   1. space-between distributes gaps correctly around text items.
+  //   2. The barcode always occupies a predictable portion of the label.
+  const barcodeAreaMm = Math.max(4, Math.min(dims.hMm * 0.40, 18));
 
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -263,15 +283,25 @@ function PrintableLabel({
       JsBarcode(svgRef.current, barcodeValue, {
         format: isEAN13 ? "EAN13" : "CODE128",
         width: dims.wMm <= 20 ? 0.8 : dims.wMm <= 30 ? 1.0 : 1.5,
-        height: Math.min(40, Math.max(12, dims.hMm * 0.35 * MM_TO_PX)),
+        // Bar height fills the container; the viewBox will be scaled to fit.
+        height: Math.round(barcodeAreaMm * MM_TO_PX),
         displayValue: false,
-        margin: 2,
+        // margin:10 preserves ISO-compliant quiet zones that scale with the barcode.
+        margin: 10,
         background: "transparent",
       });
+      // KEY FIX: Remove JsBarcode's fixed pixel width/height attributes.
+      // With these removed, CSS width:100%;height:100% takes full control.
+      svgRef.current.removeAttribute("width");
+      svgRef.current.removeAttribute("height");
+      // preserveAspectRatio="none" lets the SVG stretch to fill the container
+      // in both dimensions. Bar width RATIOS are preserved (uniform scale),
+      // so CODE128/EAN13 barcodes remain scannable.
+      svgRef.current.setAttribute("preserveAspectRatio", "none");
     } catch {
       // ignore invalid barcode
     }
-  }, [variant.barcode, dims.wMm, dims.hMm]);
+  }, [variant.barcode, dims.wMm, dims.hMm, barcodeAreaMm]);
 
   return (
     <div
@@ -298,12 +328,20 @@ function PrintableLabel({
         {productName}
       </div>
 
-      {/* Barcode SVG fills all remaining flex space — expands to the full label width */}
-      <div className="label-barcode-svg-wrap">
+      {/*
+       * Fixed-height barcode container — a plain flexShrink:0 flex child.
+       * This is the critical difference from the broken flex:1 1 auto approach:
+       * space-between now correctly distributes gaps around the text items.
+       * The SVG fills this container exactly via width:100%;height:100%.
+       */}
+      <div
+        className="label-barcode-area"
+        style={{ height: `${barcodeAreaMm}mm` }}
+      >
         <svg
           ref={svgRef}
           className="label-barcode-svg"
-          style={{ display: "block", width: "100%", height: "auto" }}
+          style={{ display: "block", width: "100%", height: "100%" }}
         />
       </div>
 
