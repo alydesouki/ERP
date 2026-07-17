@@ -109,28 +109,40 @@ function BarcodeDisplay({
       JsBarcode(ref.current, barcodeValue, {
         format: isEAN13 ? "EAN13" : "CODE128",
         width: 1.5,
-        /*
-         * height sets the bar height inside the viewBox.
-         * After JsBarcode runs we remove the fixed width/height attributes
-         * and set preserveAspectRatio="none" so that CSS width:100%/height:100%
-         * stretches the barcode to fill whatever container it is placed in.
-         */
         height: Math.round(heightMm * MM_TO_PX),
         displayValue: false,
         margin: 10,
         background: "transparent",
       });
-      // Remove fixed pixel dimensions so CSS controls sizing via the viewBox
-      ref.current.removeAttribute("width");
-      ref.current.removeAttribute("height");
-      // Allow the SVG to stretch non-uniformly to fill the container exactly
-      ref.current.setAttribute("preserveAspectRatio", "none");
+      // Do NOT remove width/height attributes and do NOT set preserveAspectRatio.
+      // Leaving the attributes intact lets the SVG render at its natural intrinsic
+      // size (determined by the bar-width parameter), so modules stay at 0.40mm—
+      // well within the reliable scanning range.
     } catch {
       // invalid barcode — silent fail
     }
   }, [value, heightMm]);
-  // width:100% fills parent; height:100% fills the fixed-height container
-  return <svg ref={ref} style={{ display: "block", width: "100%", height: "100%" }} />;
+  /*
+   * width:auto — render at natural intrinsic SVG width (no horizontal stretch).
+   * max-width:100% — scale DOWN if the SVG is wider than the container (tiny labels).
+   * height:auto — scale proportionally to the width.
+   * margin:0 auto — centre the barcode on the label.
+   * shapeRendering:crispEdges — disables anti-aliasing so bar edges are pure
+   *   black/white, critical for scanner read reliability.
+   */
+  return (
+    <svg
+      ref={ref}
+      style={{
+        display: "block",
+        width: "auto",
+        maxWidth: "100%",
+        height: "auto",
+        margin: "0 auto",
+        shapeRendering: "crispEdges",
+      }}
+    />
+  );
 }
 
 // ── Screen Preview Label ──────────────────────────────────────────────────────
@@ -153,7 +165,6 @@ function LabelPreview({
   dims: LabelDims;
   currency: string;
 }) {
-  // Display at 2× mm for a comfortable preview on screen
   const previewScale = 2;
   const previewW = dims.wMm * previewScale;
   const previewH = dims.hMm * previewScale;
@@ -162,13 +173,7 @@ function LabelPreview({
     : null;
 
   const isSmall = dims.wMm <= 30;
-  // Product name font scales with label width: 0.18pt per mm, clamped [6pt, 16pt]
   const nameFontSize = `${Math.max(6, Math.min(16, Math.round(dims.wMm * 0.18)))}pt`;
-
-  // Barcode area: 40% of label height, min 4mm, max 18mm
-  const barcodeAreaMm = Math.max(4, Math.min(dims.hMm * 0.40, 18));
-  // Scale to screen preview pixels (2× mm)
-  const barcodeAreaPx = barcodeAreaMm * previewScale;
 
   return (
     <div
@@ -218,13 +223,11 @@ function LabelPreview({
       </div>
 
       {/*
-       * Fixed-height barcode container (40% of label height).
-       * BarcodeDisplay fills it with width:100% height:100%.
-       * flexShrink:0 prevents it from shrinking with space-between.
+       * BarcodeDisplay renders at its natural intrinsic size (no stretching).
+       * max-width:100% inside BarcodeDisplay prevents overflow on tiny previews.
+       * The outer container's space-between distributes the remaining gap evenly.
        */}
-      <div style={{ width: "100%", height: barcodeAreaPx, flexShrink: 0 }}>
-        <BarcodeDisplay value={variant.barcode} heightMm={barcodeAreaMm} />
-      </div>
+      <BarcodeDisplay value={variant.barcode} heightMm={Math.max(4, dims.hMm * 0.35)} />
 
       <div style={{ fontSize: isSmall ? 6 : 7, fontFamily: "monospace", textAlign: "center", letterSpacing: 0.5 }}>
         {variant.barcode}
@@ -267,12 +270,6 @@ function PrintableLabel({
   // Product name font scales with label width: 0.18pt per mm, clamped to [6pt, 16pt].
   const nameFontSize = `${Math.max(6, Math.min(16, Math.round(dims.wMm * 0.18)))}pt`;
 
-  // Barcode container height: 40% of label height, min 4mm, max 18mm.
-  // Using a FIXED height (not flex-grow) ensures:
-  //   1. space-between distributes gaps correctly around text items.
-  //   2. The barcode always occupies a predictable portion of the label.
-  const barcodeAreaMm = Math.max(4, Math.min(dims.hMm * 0.40, 18));
-
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -282,26 +279,33 @@ function PrintableLabel({
       const isEAN13 = /^\d{13}$/.test(barcodeValue);
       JsBarcode(svgRef.current, barcodeValue, {
         format: isEAN13 ? "EAN13" : "CODE128",
-        width: dims.wMm <= 20 ? 0.8 : dims.wMm <= 30 ? 1.0 : 1.5,
-        // Bar height fills the container; the viewBox will be scaled to fit.
-        height: Math.round(barcodeAreaMm * MM_TO_PX),
+        /*
+         * Bar-width per label size — gives physical module widths of:
+         *   <= 20mm label: 0.8px × 0.264mm/px = 0.21mm  (tight but ISO-valid min 0.19mm)
+         *   <= 30mm label: 1.0px × 0.264mm/px = 0.26mm  (good)
+         *   >  30mm label: 2.0px × 0.264mm/px = 0.53mm  (comfortable, well inside 1.0mm max)
+         *
+         * These are the NATURAL sizes of the SVG — NOT stretched.
+         * The SVG is rendered at its intrinsic width; CSS max-width:100% only
+         * ever scales it DOWN (for narrow labels), never UP.
+         */
+        width: isTiny ? 0.8 : isSmall ? 1.0 : 2.0,
+        height: Math.max(10, dims.hMm * 0.35 * MM_TO_PX),
         displayValue: false,
-        // margin:10 preserves ISO-compliant quiet zones that scale with the barcode.
         margin: 10,
         background: "transparent",
       });
-      // KEY FIX: Remove JsBarcode's fixed pixel width/height attributes.
-      // With these removed, CSS width:100%;height:100% takes full control.
-      svgRef.current.removeAttribute("width");
-      svgRef.current.removeAttribute("height");
-      // preserveAspectRatio="none" lets the SVG stretch to fill the container
-      // in both dimensions. Bar width RATIOS are preserved (uniform scale),
-      // so CODE128/EAN13 barcodes remain scannable.
-      svgRef.current.setAttribute("preserveAspectRatio", "none");
+      /*
+       * IMPORTANT: Do NOT remove width/height attributes and do NOT set
+       * preserveAspectRatio="none". Keeping JsBarcode's natural dimensions
+       * means the SVG renders at its intrinsic pixel size, which CSS then
+       * maps to physical mm via the 96dpi reference (1px = 0.264mm).
+       * This gives correct, stable bar widths without any horizontal stretching.
+       */
     } catch {
       // ignore invalid barcode
     }
-  }, [variant.barcode, dims.wMm, dims.hMm, barcodeAreaMm]);
+  }, [variant.barcode, dims.wMm, dims.hMm, isTiny, isSmall]);
 
   return (
     <div
@@ -329,21 +333,24 @@ function PrintableLabel({
       </div>
 
       {/*
-       * Fixed-height barcode container — a plain flexShrink:0 flex child.
-       * This is the critical difference from the broken flex:1 1 auto approach:
-       * space-between now correctly distributes gaps around the text items.
-       * The SVG fills this container exactly via width:100%;height:100%.
+       * The SVG is a direct flex child of .barcode-label (no wrapper div).
+       * It renders at its natural intrinsic size and is centred by margin:0 auto.
+       * space-between on the parent distributes the remaining vertical gap
+       * evenly between the text items and the barcode — same as before, but
+       * now with correct, scanner-readable bar widths.
        */}
-      <div
-        className="label-barcode-area"
-        style={{ height: `${barcodeAreaMm}mm` }}
-      >
-        <svg
-          ref={svgRef}
-          className="label-barcode-svg"
-          style={{ display: "block", width: "100%", height: "100%" }}
-        />
-      </div>
+      <svg
+        ref={svgRef}
+        className="label-barcode-svg"
+        style={{
+          display: "block",
+          width: "auto",
+          maxWidth: "100%",
+          height: "auto",
+          margin: "0 auto",
+          shapeRendering: "crispEdges",
+        }}
+      />
 
       <div className="label-sku" style={{ fontSize: isTiny ? "5pt" : isSmall ? "6pt" : "6.5pt" }}>
         {variant.barcode}

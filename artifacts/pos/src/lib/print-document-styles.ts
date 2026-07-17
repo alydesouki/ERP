@@ -153,15 +153,20 @@ export const PRINT_DOCUMENT_STYLES = `
   max-height: 1.3em;
 }
 
-.barcode-label .label-barcode-area {
-  width: 100%;
-  flex-shrink: 0;
-}
-
 .barcode-label .label-barcode-svg {
   display: block;
-  width: 100%;
-  height: 100%;
+  /*
+   * width:auto + max-width:100% — render at natural intrinsic width.
+   * On tiny labels the SVG scales DOWN to fit; on wide labels it stays
+   * at the natural JsBarcode size (never stretched, so bars stay narrow).
+   * shape-rendering:crispEdges — disables anti-aliasing on bar edges,
+   * which is the key fix for scanner read reliability.
+   */
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  shape-rendering: crispEdges;
 }
 
 .barcode-label .label-sku {
