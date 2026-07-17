@@ -375,7 +375,7 @@ function AssociationFormModal({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1">تكرار المساهمة</label>
-            <select className={inputCls} value={freq} onChange={(e) => setFreq(e.target.value)}>
+            <select className={inputCls} value={freq} onChange={(e) => setFreq(e.target.value as "DAILY" | "WEEKLY" | "MONTHLY" | "NONE" | "CUSTOM")}>
               {Object.entries(FREQ_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>

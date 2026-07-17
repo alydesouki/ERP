@@ -1333,6 +1333,10 @@ export interface DashboardKpis {
   lowStockCount: number;
   customerDebts: number;
   supplierDebts: number;
+  activeAssociationsCount: number;
+  totalAssociationsWithdrawn: number;
+  totalAssociationsReturned: number;
+  totalAssociationsBalance: number;
 }
 
 export interface NamedValue {

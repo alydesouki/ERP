@@ -1,8 +1,15 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { AnalyticsService } from "../lib/analytics-service";
-import { and, eq, sql } from "drizzle-orm";
-import { db, associationsTable, associationTransactionsTable } from "@workspace/db";
+import { and, eq, gt, sql } from "drizzle-orm";
+import {
+  db,
+  associationsTable,
+  associationTransactionsTable,
+  inventoryItemsTable,
+  productsTable,
+  productVariantsTable,
+} from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -42,11 +49,7 @@ router.get(
     const customerDebts = await AnalyticsService.getCustomerDebts(storeId);
     const supplierDebts = await AnalyticsService.getSupplierDebts(storeId);
 
-    // For low stock count, we can just use the db here since it's simple, or add it to AnalyticsService.
-    // Given we want to keep it simple, I'll add it to AnalyticsService too or do it here.
-    // Actually, AnalyticsService doesn't have low stock. Let's add a quick db query.
-    const { db, inventoryItemsTable, productsTable, productVariantsTable } = require("@workspace/db");
-    const { and, eq, gt, sql } = require("drizzle-orm");
+    // Low stock count: variants whose total stock is at or below the product's reorder point.
     const lowStockRows = await db
       .select({ variantId: inventoryItemsTable.variantId })
       .from(inventoryItemsTable)

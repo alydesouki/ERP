@@ -117,7 +117,7 @@ function BarcodeDisplay({
         width: forPrint ? (widthPx && widthPx < 30 * MM_TO_PX ? 1.0 : 1.2) : 1.2,
         height: heightMm * (forPrint ? 3.779528 : 1.5),
         displayValue: false,
-        margin: 10,
+        margin: 2,
         background: "transparent",
       });
     } catch {
@@ -156,6 +156,8 @@ function LabelPreview({
     : null;
 
   const isSmall = dims.wMm <= 30;
+  // Product name font scales with label width: 0.18pt per mm, clamped to [6pt, 16pt]
+  const nameFontSize = `${Math.max(6, Math.min(16, Math.round(dims.wMm * 0.18)))}pt`;
 
   return (
     <div
@@ -192,13 +194,13 @@ function LabelPreview({
       )}
       <div
         style={{
-          fontSize: isSmall ? 8 : 10,
+          fontSize: nameFontSize,
           fontWeight: "bold",
           textAlign: "center",
           lineHeight: 1.2,
           width: "100%",
           overflow: "hidden",
-          maxHeight: isSmall ? "2em" : "2.4em",
+          maxHeight: "2.4em",
         }}
       >
         {productName}
@@ -246,6 +248,11 @@ function PrintableLabel({
   const isSmall = dims.wMm <= 30;
   const isTiny  = dims.wMm <= 20;
 
+  // Product name font scales with label width: 0.18pt per mm, clamped to [6pt, 16pt].
+  // This ensures the name is always clearly readable on large labels (e.g. 100×50mm)
+  // and not oversized on tiny labels (e.g. 20×10mm).
+  const nameFontSize = `${Math.max(6, Math.min(16, Math.round(dims.wMm * 0.18)))}pt`;
+
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -258,7 +265,7 @@ function PrintableLabel({
         width: dims.wMm <= 20 ? 0.8 : dims.wMm <= 30 ? 1.0 : 1.5,
         height: Math.min(40, Math.max(12, dims.hMm * 0.35 * MM_TO_PX)),
         displayValue: false,
-        margin: 10,
+        margin: 2,
         background: "transparent",
       });
     } catch {
@@ -286,17 +293,19 @@ function PrintableLabel({
 
       <div
         className="label-product-name"
-        style={{ fontSize: isTiny ? "4.5pt" : isSmall ? "5.5pt" : "7pt" }}
+        style={{ fontSize: nameFontSize }}
       >
         {productName}
       </div>
 
-      {/* The SVG element — JsBarcode writes into this ref */}
-      <svg
-        ref={svgRef}
-        className="label-barcode-svg"
-        style={{ display: "block", width: "100%", height: "auto" }}
-      />
+      {/* Barcode SVG fills all remaining flex space — expands to the full label width */}
+      <div className="label-barcode-svg-wrap">
+        <svg
+          ref={svgRef}
+          className="label-barcode-svg"
+          style={{ display: "block", width: "100%", height: "auto" }}
+        />
+      </div>
 
       <div className="label-sku" style={{ fontSize: isTiny ? "5pt" : isSmall ? "6pt" : "6.5pt" }}>
         {variant.barcode}
