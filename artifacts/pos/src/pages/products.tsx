@@ -415,6 +415,7 @@ function ProductBarcodePrintLoader({
     barcode: v.barcode ?? "",
     colorName: v.colorName,
     sizeName: v.sizeName,
+    shortId: (v as any).shortId,
     sellingPrice: v.sellingPrice != null ? String(v.sellingPrice) : String(product.basePrice),
   }));
 

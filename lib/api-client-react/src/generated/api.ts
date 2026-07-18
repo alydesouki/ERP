@@ -10681,3 +10681,36 @@ export const useDeleteEquityMovement = <TError = ErrorType<unknown>, TContext = 
 ): UseMutationResult<Awaited<ReturnType<typeof deleteEquityMovement>>, TError, { id: string }, TContext> => {
   return useMutation(getDeleteEquityMovementMutationOptions(options));
 };
+import type { AdjustSupplierBalanceBody } from './api.schemas';
+
+
+export const getAdjustSupplierBalanceUrl = (id: string,) => `/api/suppliers/${id}/adjust`
+
+export const adjustSupplierBalance = async (id: string,
+    adjustSupplierBalanceBody: AdjustSupplierBalanceBody, options?: RequestInit): Promise<void> => {
+  
+    return customFetch<void>(getAdjustSupplierBalanceUrl(id),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(adjustSupplierBalanceBody)
+    }
+  );}
+
+export const getAdjustSupplierBalanceMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<void, TError,{id: string; data: AdjustSupplierBalanceBody}, TContext>, requestOptions?: RequestInit}
+): UseMutationOptions<void, TError,{id: string; data: AdjustSupplierBalanceBody}, TContext> => {
+const {mutation: mutationOptions, requestOptions} = options ?? {};
+      const mutationFn: MutationFunction<void, {id: string; data: AdjustSupplierBalanceBody}> = (props) => {
+          const {id, data} = props ?? {};
+          return  adjustSupplierBalance(id,data,requestOptions)
+        }
+        return  { mutationFn, ...mutationOptions }}
+
+export const useAdjustSupplierBalance = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<void, TError,{id: string; data: AdjustSupplierBalanceBody}, TContext>, requestOptions?: RequestInit}
+) => {
+      const mutationOptions = getAdjustSupplierBalanceMutationOptions(options);
+      return useMutation(mutationOptions);
+    }

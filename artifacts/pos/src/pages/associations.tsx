@@ -111,13 +111,24 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
 
 export function AssociationsPage() {
   const { hasPermission } = useAuth();
-  const [tab, setTab] = useState<Tab>("associations");
 
-  const canView = hasPermission("associations.view");
+  const canViewBase = hasPermission("associations.view");
   const canCreate = hasPermission("associations.create");
   const canEdit = hasPermission("associations.edit");
   const canTransact = hasPermission("associations.transactions");
   const canReport = hasPermission("associations.report");
+
+  const availableTabs = TABS.filter((t) => {
+    if (t.key === "associations") return canViewBase || canCreate || canEdit;
+    if (t.key === "transactions") return canTransact;
+    if (t.key === "report") return canReport;
+    if (t.key === "statement") return canViewBase || canTransact;
+    return false;
+  });
+
+  const [tab, setTab] = useState<Tab>(availableTabs.length > 0 ? availableTabs[0].key : "associations");
+
+  const canView = availableTabs.length > 0;
 
   if (!canView) {
     return (
@@ -138,7 +149,7 @@ export function AssociationsPage() {
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-2">
-          {TABS.map((t) => (
+          {availableTabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -175,6 +186,7 @@ function AssociationsTab({ canCreate, canEdit }: { canCreate: boolean; canEdit: 
   const [statusFilter, setStatusFilter] = useState<"" | "ACTIVE" | "CLOSED">("");
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<Association | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Association | null>(null);
   const [error, setError] = useState("");
 
   const params = new URLSearchParams();
@@ -198,6 +210,12 @@ function AssociationsTab({ canCreate, canEdit }: { canCreate: boolean; canEdit: 
       customFetch<Association>(`/api/associations/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/associations"] }); setEditTarget(null); setError(""); },
     onError: (e) => setError(apiErr(e, "حدث خطأ أثناء التعديل")),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => customFetch(`/api/associations/${id}`, { method: "DELETE" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/associations"] }); setDeleteTarget(null); setError(""); },
+    onError: (e) => setError(apiErr(e, "حدث خطأ أثناء الحذف")),
   });
 
   return (
@@ -259,7 +277,7 @@ function AssociationsTab({ canCreate, canEdit }: { canCreate: boolean; canEdit: 
                   <td className="py-2 px-3">
                     <BalanceBadge balance={a.balance} />
                   </td>
-                  <td className="py-2 px-3">
+                  <td className="py-2 px-3 flex gap-1">
                     {canEdit && (
                       <button
                         onClick={() => { setEditTarget(a); setError(""); }}
@@ -267,6 +285,15 @@ function AssociationsTab({ canCreate, canEdit }: { canCreate: boolean; canEdit: 
                         title="تعديل"
                       >
                         <Pencil size={14} />
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button
+                        onClick={() => { setDeleteTarget(a); setError(""); }}
+                        className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 transition-colors"
+                        title="حذف"
+                      >
+                        <X size={14} />
                       </button>
                     )}
                   </td>
@@ -298,6 +325,31 @@ function AssociationsTab({ canCreate, canEdit }: { canCreate: boolean; canEdit: 
           onClose={() => { setEditTarget(null); setError(""); }}
           onSubmit={(body) => editMutation.mutate({ id: editTarget.id, body })}
         />
+      )}
+
+      {/* Delete modal */}
+      {deleteTarget && (
+        <Modal title="حذف الجمعية" open={true} onClose={() => { setDeleteTarget(null); setError(""); }}>
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-slate-600">
+              هل أنت متأكد أنك تريد حذف الجمعية <strong>{deleteTarget.name}</strong>؟<br/>
+              لا يمكن التراجع عن هذا الإجراء، ولن يتم الحذف إذا كانت هناك معاملات مالية مرتبطة بها.
+            </p>
+            {error && <p className="text-rose-600 text-xs font-semibold">{error}</p>}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => deleteMutation.mutate(deleteTarget.id)}
+                disabled={deleteMutation.isPending}
+                className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl transition-colors disabled:opacity-60"
+              >
+                {deleteMutation.isPending ? "جارٍ الحذف..." : "تأكيد الحذف"}
+              </button>
+              <button type="button" onClick={() => { setDeleteTarget(null); setError(""); }} className="flex-1 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

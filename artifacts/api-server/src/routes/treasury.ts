@@ -57,7 +57,6 @@ function clientIp(req: Request): string | null {
 router.get(
   "/treasury/accounts",
   requireAuth,
-  requirePermission("treasury.view"),
   async (req, res) => {
     const storeId = req.auth!.storeId;
     await ensureStoreFinancials(db, storeId);
@@ -298,7 +297,7 @@ router.post(
       res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" });
       return;
     }
-    const { actualClosingBalance, notes } = parsed.data;
+    const { actualClosingBalance, notes, transferToMainSafe, transferAmount } = parsed.data;
     const storeId = req.auth!.storeId;
     const userId = req.auth!.userId;
     const sessionId = String(req.params["id"]);
@@ -308,6 +307,7 @@ router.post(
         id: treasurySessionsTable.id,
         status: treasurySessionsTable.status,
         openingBalance: treasurySessionsTable.openingBalance,
+        treasuryAccountId: treasurySessionsTable.treasuryAccountId,
       })
       .from(treasurySessionsTable)
       .where(and(eq(treasurySessionsTable.id, sessionId), eq(treasurySessionsTable.storeId, storeId)))
@@ -345,6 +345,75 @@ router.post(
       })
       .where(eq(treasurySessionsTable.id, sessionId))
       .returning({ id: treasurySessionsTable.id });
+
+    // Auto-transfer to Main Safe if requested
+    if (transferToMainSafe && transferAmount && transferAmount > 0) {
+      // Find the main safe for this store
+      const [mainSafe] = await db
+        .select({ id: treasuryAccountsTable.id, type: treasuryAccountsTable.type })
+        .from(treasuryAccountsTable)
+        .where(
+          and(
+            eq(treasuryAccountsTable.storeId, storeId),
+            eq(treasuryAccountsTable.type, "MAIN_SAFE")
+          )
+        )
+        .limit(1);
+
+      if (mainSafe && session.treasuryAccountId !== mainSafe.id) {
+        const desc = "ترحيل رصيد الوردية إلى الخزينة الرئيسية";
+        await db.transaction(async (tx) => {
+          const [transfer] = await tx
+            .insert(treasuryTransfersTable)
+            .values({
+              storeId,
+              fromAccountId: session.treasuryAccountId,
+              toAccountId: mainSafe.id,
+              amount: money(transferAmount),
+              description: desc,
+              createdBy: userId,
+            })
+            .returning({ id: treasuryTransfersTable.id });
+
+          await postTreasuryTransaction(tx, {
+            storeId,
+            treasuryAccountId: session.treasuryAccountId,
+            direction: "OUT",
+            amount: transferAmount,
+            referenceType: "TRANSFER",
+            referenceId: transfer.id,
+            description: desc,
+            userId,
+            allowNegative: true,
+          });
+
+          await postTreasuryTransaction(tx, {
+            storeId,
+            treasuryAccountId: mainSafe.id,
+            direction: "IN",
+            amount: transferAmount,
+            referenceType: "TRANSFER",
+            referenceId: transfer.id,
+            description: desc,
+            userId,
+          });
+
+          const fromCode = "1000"; // Assuming CASH is the drawer
+          const toCode = "1001"; // MAIN_SAFE
+          await postJournalEntry(tx, {
+            storeId,
+            userId,
+            description: desc,
+            referenceType: "TRANSFER",
+            referenceId: transfer.id,
+            lines: [
+              { code: toCode, debit: transferAmount },
+              { code: fromCode, credit: transferAmount },
+            ],
+          });
+        });
+      }
+    }
 
     await writeAuditLog({
       storeId,

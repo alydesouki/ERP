@@ -156,12 +156,12 @@ function AuthenticatedApp() {
           </PermissionGate>
         </Route>
         <Route path="/treasury">
-          <PermissionGate permission="treasury.view">
+          <PermissionGate anyOf={["treasury.view", "treasury.session", "treasury.manage"]}>
             <TreasuryPage />
           </PermissionGate>
         </Route>
         <Route path="/finance">
-          <PermissionGate anyOf={["finance.view", "expenses.create"]}>
+          <PermissionGate anyOf={["finance.view", "expenses.create", "salaries.create", "advances.create", "equity.create"]}>
             <FinancePage />
           </PermissionGate>
         </Route>
@@ -171,7 +171,7 @@ function AuthenticatedApp() {
           </PermissionGate>
         </Route>
         <Route path="/associations">
-          <PermissionGate permission="associations.view">
+          <PermissionGate anyOf={["associations.view", "associations.transactions", "associations.create", "associations.edit"]}>
             <AssociationsPage />
           </PermissionGate>
         </Route>

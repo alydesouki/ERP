@@ -14,6 +14,8 @@ import {
   Users,
   Truck,
   CalendarDays,
+  TrendingUp,
+  Activity,
   Banknote,
   Clock,
   Printer,
@@ -54,18 +56,32 @@ function money(v: string | number | null | undefined): string {
   });
 }
 
+function getShiftDate(d: Date): Date {
+  const shiftD = new Date(d.getTime());
+  shiftD.setHours(shiftD.getHours() - 11);
+  return shiftD;
+}
+
+function formatDateToLocalStr(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatDateToLocalStr(getShiftDate(new Date()));
 }
 
 function monthAgoStr(): string {
-  const d = new Date();
+  const d = getShiftDate(new Date());
   d.setDate(d.getDate() - 30);
-  return d.toISOString().slice(0, 10);
+  return formatDateToLocalStr(d);
 }
 
 function yearStartStr(): string {
-  return `${new Date().getFullYear()}-01-01`;
+  const d = getShiftDate(new Date());
+  return `${d.getFullYear()}-01-01`;
 }
 
 function handlePrint() {
@@ -81,6 +97,7 @@ type ReportTab =
   | "treasury"
   | "expenses"
   | "top-products"
+  | "daily-transactions"
   | "account-statement"
   | "supplier-overview"
   | "product-inquiry"
@@ -112,6 +129,7 @@ const TABS: TabDef[] = [
   { key: "product-inquiry", label: "استعلام منتج", icon: <Search size={18} />, permission: "reports.inventory" },
   { key: "customer-statement", label: "كشف عميل", icon: <Users size={18} />, permission: "reports.view" },
   { key: "salary-summary", label: "ملخص الرواتب", icon: <Banknote size={18} />, permission: "reports.view" },
+  { key: "daily-transactions", label: "معاملات اليوم", icon: <Activity size={18} />, permission: "reports.view" },
   { key: "supplier-aging", label: "تقادم الموردين", icon: <Clock size={18} />, permission: "reports.view" },
 ];
 
@@ -169,12 +187,27 @@ export function ReportsPage() {
           {active === "customer-statement" && <CustomerStatementReport />}
           {active === "salary-summary" && <SalarySummaryReport />}
           {active === "supplier-aging" && <SupplierAgingReport />}
+          {active === "daily-transactions" && <DailyTransactionsReport />}
         </div>
       </div>
     </div>
   );
 }
+
 // Helper Components
+function ReturnStatusBadge({ status }: { status: string }) {
+  if (status === "FULL") return <span className="text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full text-xs font-bold">مرتجع كلي</span>;
+  if (status === "PARTIAL") return <span className="text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full text-xs font-bold">مرتجع جزئي</span>;
+  return <span className="text-slate-400 text-xs font-bold">لا يوجد</span>;
+}
+
+function PaymentStatusBadge({ status }: { status: string }) {
+  if (status === "PAID") return <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full text-xs font-bold">مدفوع</span>;
+  if (status === "UNPAID") return <span className="text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full text-xs font-bold">غير مدفوع</span>;
+  if (status === "PARTIAL") return <span className="text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full text-xs font-bold">جزئي</span>;
+  return <span>{status}</span>;
+}
+
 function PrintButton() {
   return (
     <button
@@ -319,20 +352,25 @@ function SalesReport() {
       <div className="flex flex-wrap gap-3 mb-5">
         <SummaryStat label="عدد الفواتير" value={String(d?.count ?? 0)} />
         <SummaryStat label="إجمالي المبيعات" value={money(d?.total)} />
+        <SummaryStat label="إجمالي المرتجعات" value={money(d?.totalReturned)} color="text-rose-600" />
+        <SummaryStat label="صافي المبيعات" value={money(d?.netTotal)} color="text-emerald-700" />
       </div>
       <Table
-        headers={["رقم الفاتورة", "التاريخ", "العميل", "طريقة الدفع", "الحالة", "الإجمالي"]}
+        headers={["رقم الفاتورة", "التاريخ", "العميل", "طريقة الدفع", "حالة الدفع", "حالة الإرجاع", "الإجمالي", "المرتجع", "الصافي"]}
         loading={q.isLoading}
         empty={!d || d.rows.length === 0}
       >
-        {d?.rows.map((r) => (
+        {d?.rows.map((r: any) => (
           <tr key={r.id} className="text-slate-700">
             <td className="py-2 px-3 font-bold">{r.invoiceNumber}</td>
             <td className="py-2 px-3">{formatDateTime(r.date)}</td>
             <td className="py-2 px-3">{r.customerName ?? "—"}</td>
             <td className="py-2 px-3">{r.paymentMethod ?? "—"}</td>
-            <td className="py-2 px-3">{r.paymentStatus}</td>
+            <td className="py-2 px-3"><PaymentStatusBadge status={r.paymentStatus} /></td>
+            <td className="py-2 px-3"><ReturnStatusBadge status={r.returnStatus} /></td>
             <td className="py-2 px-3 font-bold">{money(r.total)}</td>
+            <td className="py-2 px-3 text-rose-600 font-bold">{Number(r.returnedAmount) > 0 ? money(r.returnedAmount) : "—"}</td>
+            <td className="py-2 px-3 font-bold text-emerald-700">{money(Number(r.total) - Number(r.returnedAmount))}</td>
           </tr>
         ))}
       </Table>
@@ -527,9 +565,140 @@ function ProfitLossReport() {
                 {money(r.value)}
               </span>
             </div>
-          ))}
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+const translateRef = (ref: string) => {
+  const map: Record<string, string> = {
+    SALE: "مبيعات",
+    SALES_RETURN: "مرتجع مبيعات",
+    SALE_RETURN: "مرتجع مبيعات",
+    PURCHASE: "مشتريات",
+    PURCHASE_RETURN: "مرتجع مشتريات",
+    EXPENSE: "مصروفات",
+    EXPENSE_REVERSAL: "إلغاء مصروف",
+    CUSTOMER_PAYMENT: "تحصيل من عميل",
+    SUPPLIER_PAYMENT: "سداد لمورد",
+    SALARY: "رواتب موظفين",
+    SALARY_REVERSAL: "إلغاء راتب",
+    WITHDRAWAL: "سحب",
+    WITHDRAWAL_REVERSAL: "إلغاء سحب",
+    DEPOSIT: "إيداع",
+    DEPOSIT_REVERSAL: "إلغاء إيداع",
+    OPENING: "رصيد افتتاحي",
+    ADJUSTMENT: "تسوية يدوية",
+    MANUAL: "تسوية يدوية",
+    TRANSFER_IN: "تحويل وارد",
+    TRANSFER_OUT: "تحويل صادر",
+    ASSOCIATION_WITHDRAWAL: "سداد جمعية",
+    ASSOCIATION_RETURN: "قبض جمعية",
+  };
+  return map[ref] || ref;
+};
+
+function DailyTransactionsReport() {
+  const [date, setDate] = useState(todayStr());
+  const params = { fromDate: date, toDate: date };
+  const q = useGetTreasuryReport(params, {
+    query: { queryKey: getGetTreasuryReportQueryKey(params) },
+  });
+  const d = q.data;
+
+  // Group by Reference Type
+  const inGroups: Record<string, number> = {};
+  const outGroups: Record<string, number> = {};
+
+  d?.rows.forEach((r) => {
+    const amount = Number(r.amount);
+    const cat = r.referenceType;
+    if (r.direction === "IN") {
+      inGroups[cat] = (inGroups[cat] || 0) + amount;
+    } else {
+      outGroups[cat] = (outGroups[cat] || 0) + amount;
+    }
+  });
+
+  return (
+    <div>
+      <div className="mb-6 flex items-end gap-4">
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-1">تاريخ التقرير</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-slate-50"
+          />
         </div>
-      )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100">
+          <div className="flex items-center gap-2 text-emerald-800 mb-4">
+            <TrendingUp size={20} className="text-emerald-600" />
+            <h3 className="text-lg font-bold">إجمالي المحصل (الداخل)</h3>
+          </div>
+          <p className="text-3xl font-bold text-emerald-700 mb-6">{money(d?.totalIn)}</p>
+          <div className="space-y-3">
+            {Object.entries(inGroups).map(([k, v]) => (
+              <div key={k} className="flex justify-between items-center bg-white/60 p-3 rounded-xl">
+                <span className="font-bold text-slate-700">{translateRef(k)}</span>
+                <span className="font-bold text-emerald-700">{money(v)}</span>
+              </div>
+            ))}
+            {Object.keys(inGroups).length === 0 && <p className="text-sm text-emerald-600/70">لا يوجد حركات محصلة</p>}
+          </div>
+        </div>
+
+        <div className="bg-rose-50 rounded-2xl p-6 border border-rose-100">
+          <div className="flex items-center gap-2 text-rose-800 mb-4">
+            <TrendingDown size={20} className="text-rose-600" />
+            <h3 className="text-lg font-bold">إجمالي المنصرف (الخارج)</h3>
+          </div>
+          <p className="text-3xl font-bold text-rose-700 mb-6">{money(d?.totalOut)}</p>
+          <div className="space-y-3">
+            {Object.entries(outGroups).map(([k, v]) => (
+              <div key={k} className="flex justify-between items-center bg-white/60 p-3 rounded-xl">
+                <span className="font-bold text-slate-700">{translateRef(k)}</span>
+                <span className="font-bold text-rose-700">{money(v)}</span>
+              </div>
+            ))}
+            {Object.keys(outGroups).length === 0 && <p className="text-sm text-rose-600/70">لا يوجد حركات منصرفة</p>}
+          </div>
+        </div>
+      </div>
+
+      <h3 className="text-lg font-bold text-slate-800 mb-4">سجل تفاصيل الحركات</h3>
+      <Table
+        headers={["الوقت", "الخزينة", "الاتجاه", "القيمة", "نوع الحركة", "ملاحظات"]}
+        loading={q.isLoading}
+        empty={!d || d.rows.length === 0}
+      >
+        {d?.rows.map((r) => (
+          <tr key={r.id} className="text-slate-700">
+            <td className="py-2 px-3">{new Date(r.date).toLocaleTimeString("ar-EG")}</td>
+            <td className="py-2 px-3 font-bold">{r.accountName}</td>
+            <td className="py-2 px-3">
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  r.direction === "IN" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                }`}
+              >
+                {r.direction === "IN" ? "وارد" : "منصرف"}
+              </span>
+            </td>
+            <td className="py-2 px-3 font-bold">{money(r.amount)}</td>
+            <td className="py-2 px-3 font-medium">{translateRef(r.referenceType)}</td>
+            <td className="py-2 px-3 text-sm text-slate-500 max-w-[200px] truncate" title={r.description || ""}>
+              {r.description || "-"}
+            </td>
+          </tr>
+        ))}
+      </Table>
     </div>
   );
 }
@@ -571,7 +740,7 @@ function TreasuryReport() {
             </td>
             <td className="py-2 px-3 font-bold">{money(r.amount)}</td>
             <td className="py-2 px-3">{money(r.balanceAfter)}</td>
-            <td className="py-2 px-3 text-xs">{r.referenceType}</td>
+            <td className="py-2 px-3 font-medium text-xs">{translateRef(r.referenceType)}</td>
           </tr>
         ))}
       </Table>
@@ -621,8 +790,10 @@ function DailySalesReport() {
     queryKey: ["/api/reports/daily-sales", from, to],
     queryFn: () =>
       customFetch<{
-        rows: { day: string; invoiceCount: number; totalRevenue: number; totalCost: number; avgSale: number }[];
+        rows: { day: string; invoiceCount: number; totalRevenue: number; totalCost: number; totalReturned: number; returnedCost: number; netRevenue: number; netCost: number; avgSale: number }[];
         grandTotal: number;
+        grandReturned: number;
+        grandNetTotal: number;
         grandCost: number;
         grandProfit: number;
         dayCount: number;
@@ -637,27 +808,31 @@ function DailySalesReport() {
       <DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} />
       <div className="flex flex-wrap gap-3 mb-5">
         <SummaryStat label="عدد الأيام" value={String(d?.dayCount ?? 0)} />
-        <SummaryStat label="إجمالي الإيراد" value={money(d?.grandTotal)} color="text-emerald-700" />
-        <SummaryStat label="إجمالي التكلفة" value={money(d?.grandCost)} color="text-rose-600" />
+        <SummaryStat label="إجمالي الإيرادات" value={money(d?.grandTotal)} />
+        <SummaryStat label="إجمالي المرتجعات" value={money(d?.grandReturned)} color="text-rose-600" />
+        <SummaryStat label="صافي المبيعات" value={money(d?.grandNetTotal)} color="text-emerald-700" />
+        <SummaryStat label="إجمالي التكلفة" value={money(d?.grandCost)} color="text-slate-600" />
         <SummaryStat label="إجمالي الربح" value={money(d?.grandProfit)} color="text-amber-600" />
       </div>
       <Table
-        headers={["اليوم", "عدد الفواتير", "الإيراد", "التكلفة", "الربح", "متوسط الفاتورة"]}
+        headers={["اليوم", "عدد الفواتير", "الإيراد", "المرتجع", "الصافي", "متوسط الفاتورة", "التكلفة", "الربح"]}
         loading={q.isLoading}
         empty={!d || d.rows.length === 0}
       >
         {d?.rows.map((r) => {
-          const profit = Number(r.totalRevenue) - Number(r.totalCost);
+          const profit = Number(r.netRevenue) - Number(r.netCost);
           return (
             <tr key={r.day} className="text-slate-700">
               <td className="py-2 px-3 font-bold">{r.day}</td>
               <td className="py-2 px-3">{r.invoiceCount}</td>
-              <td className="py-2 px-3 text-emerald-700 font-bold">{money(r.totalRevenue)}</td>
-              <td className="py-2 px-3 text-rose-600">{money(r.totalCost)}</td>
+              <td className="py-2 px-3 font-bold">{money(r.totalRevenue)}</td>
+              <td className="py-2 px-3 text-rose-600 font-bold">{Number(r.totalReturned) > 0 ? money(r.totalReturned) : "—"}</td>
+              <td className="py-2 px-3 text-emerald-700 font-bold">{money(r.netRevenue)}</td>
+              <td className="py-2 px-3">{money(r.avgSale)}</td>
+              <td className="py-2 px-3 text-slate-600">{money(r.netCost)}</td>
               <td className={`py-2 px-3 font-bold ${profit >= 0 ? "text-amber-600" : "text-rose-600"}`}>
                 {money(profit)}
               </td>
-              <td className="py-2 px-3">{money(r.avgSale)}</td>
             </tr>
           );
         })}

@@ -15,11 +15,15 @@ import {
   productVariantsTable,
   categoriesTable,
   salesReturnsTable,
+  purchaseReturnsTable,
   salaryRecordsTable
 } from "@workspace/db";
-function endOfDay(d: Date): Date {
-  const e = new Date(d);
-  e.setHours(23, 59, 59, 999);
+function endOfDay(d: Date | string): Date {
+  const dt = new Date(d);
+  const str = dt.toISOString().slice(0, 10);
+  const e = new Date(`${str}T11:00:00`);
+  e.setDate(e.getDate() + 1);
+  e.setMilliseconds(e.getMilliseconds() - 1);
   return e;
 }
 /**
@@ -62,6 +66,21 @@ export class AnalyticsService {
       .where(and(...conditions));
 
     return purchAgg || { total: 0 };
+  }
+
+  static async getPurchaseReturnsKPIs(storeId: string, fromDate?: Date, toDate?: Date) {
+    const conditions: SQL[] = [eq(purchaseReturnsTable.storeId, storeId)];
+    if (fromDate) conditions.push(gte(purchaseReturnsTable.createdAt, fromDate));
+    if (toDate) conditions.push(lte(purchaseReturnsTable.createdAt, endOfDay(toDate)));
+
+    const [retAgg] = await db
+      .select({
+        total: sql<number>`CAST(coalesce(sum(${purchaseReturnsTable.totalAmount}), 0) AS REAL)`,
+      })
+      .from(purchaseReturnsTable)
+      .where(and(...conditions));
+
+    return retAgg || { total: 0 };
   }
 
   static async getExpensesKPIs(storeId: string, fromDate?: Date, toDate?: Date) {
@@ -155,8 +174,8 @@ export class AnalyticsService {
   // --- Charts (Dashboard) ---
   
   static async getDailySales(storeId: string, fromDate: Date) {
-    // SQLite: strftime('%Y-%m-%d', datetime(created_at / 1000, 'unixepoch'))
-    const dayExpr = sql<string>`strftime('%Y-%m-%d', datetime(${invoicesTable.createdAt} / 1000, 'unixepoch'))`;
+    // SQLite: strftime('%Y-%m-%d', datetime((created_at / 1000) - 39600, 'unixepoch'))
+    const dayExpr = sql<string>`strftime('%Y-%m-%d', datetime((${invoicesTable.createdAt} / 1000) - 39600, 'unixepoch'))`;
     const sales = await db
       .select({
         label: dayExpr,
@@ -167,7 +186,7 @@ export class AnalyticsService {
       .groupBy(dayExpr)
       .orderBy(dayExpr);
 
-    const retDayExpr = sql<string>`strftime('%Y-%m-%d', datetime(${salesReturnsTable.createdAt} / 1000, 'unixepoch'))`;
+    const retDayExpr = sql<string>`strftime('%Y-%m-%d', datetime((${salesReturnsTable.createdAt} / 1000) - 39600, 'unixepoch'))`;
     const returns = await db
       .select({
         label: retDayExpr,
@@ -189,7 +208,7 @@ export class AnalyticsService {
   }
 
   static async getMonthlyRevenue(storeId: string, fromDate: Date) {
-    const monthExpr = sql<string>`strftime('%Y-%m', datetime(${invoicesTable.createdAt} / 1000, 'unixepoch'))`;
+    const monthExpr = sql<string>`strftime('%Y-%m', datetime((${invoicesTable.createdAt} / 1000) - 39600, 'unixepoch'))`;
     const sales = await db
       .select({
         label: monthExpr,
@@ -200,7 +219,7 @@ export class AnalyticsService {
       .groupBy(monthExpr)
       .orderBy(monthExpr);
 
-    const retMonthExpr = sql<string>`strftime('%Y-%m', datetime(${salesReturnsTable.createdAt} / 1000, 'unixepoch'))`;
+    const retMonthExpr = sql<string>`strftime('%Y-%m', datetime((${salesReturnsTable.createdAt} / 1000) - 39600, 'unixepoch'))`;
     const returns = await db
       .select({
         label: retMonthExpr,
@@ -222,7 +241,7 @@ export class AnalyticsService {
   }
 
   static async getCashFlow(storeId: string, fromDate: Date) {
-    const cfDayExpr = sql<string>`strftime('%Y-%m-%d', datetime(${treasuryTransactionsTable.createdAt} / 1000, 'unixepoch'))`;
+    const cfDayExpr = sql<string>`strftime('%Y-%m-%d', datetime((${treasuryTransactionsTable.createdAt} / 1000) - 39600, 'unixepoch'))`;
     return await db
       .select({
         label: cfDayExpr,

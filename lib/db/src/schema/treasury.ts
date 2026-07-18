@@ -9,6 +9,7 @@ export const treasuryAccountTypeEnum = [
   "CARD",
   "INSTAPAY",
   "WALLET",
+  "MAIN_SAFE",
 ] as const;
 
 export const treasuryTxDirectionEnum = ["IN", "OUT"] as const;

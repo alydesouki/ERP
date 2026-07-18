@@ -25,7 +25,8 @@ interface ChartEntry {
 // by the posting logic; do not renumber. 1020/1030 extend the SRS chart so each
 // digital treasury drawer maps 1:1 to an asset account for clean double-entry.
 export const CHART_OF_ACCOUNTS: ChartEntry[] = [
-  { code: "1000", name: "النقدية", nameEn: "Cash", type: "ASSET", normalBalance: "DEBIT", isContra: false },
+  { code: "1000", name: "درج الكاشير", nameEn: "Cash", type: "ASSET", normalBalance: "DEBIT", isContra: false },
+  { code: "1001", name: "الخزينة الرئيسية", nameEn: "Main Safe", type: "ASSET", normalBalance: "DEBIT", isContra: false },
   { code: "1010", name: "ذمم البطاقات", nameEn: "Card Receivable", type: "ASSET", normalBalance: "DEBIT", isContra: false },
   { code: "1020", name: "إنستا باي", nameEn: "InstaPay", type: "ASSET", normalBalance: "DEBIT", isContra: false },
   { code: "1030", name: "المحفظة الإلكترونية", nameEn: "Wallet", type: "ASSET", normalBalance: "DEBIT", isContra: false },
@@ -44,10 +45,11 @@ export const CHART_OF_ACCOUNTS: ChartEntry[] = [
   { code: "6000", name: "فروق الخزينة", nameEn: "Treasury Variance", type: "EQUITY", normalBalance: "CREDIT", isContra: false },
 ];
 
-type TreasuryType = "CASH" | "CARD" | "INSTAPAY" | "WALLET";
+type TreasuryType = "CASH" | "CARD" | "INSTAPAY" | "WALLET" | "MAIN_SAFE";
 
 const TREASURY_ACCOUNTS: { type: TreasuryType; name: string }[] = [
-  { type: "CASH", name: "الخزنة النقدية" },
+  { type: "CASH", name: "درج الكاشير" },
+  { type: "MAIN_SAFE", name: "الخزينة الرئيسية" },
   { type: "CARD", name: "البطاقات" },
   { type: "INSTAPAY", name: "إنستا باي" },
   { type: "WALLET", name: "المحفظة" },
@@ -57,6 +59,7 @@ const TREASURY_ACCOUNTS: { type: TreasuryType; name: string }[] = [
 // need to hit the matching asset account in the general ledger.
 export const TREASURY_TYPE_TO_ACCOUNT_CODE: Record<TreasuryType, string> = {
   CASH: "1000",
+  MAIN_SAFE: "1001",
   CARD: "1010",
   INSTAPAY: "1020",
   WALLET: "1030",

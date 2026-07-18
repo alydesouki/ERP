@@ -296,6 +296,8 @@ function SessionModal({
   const closeMutation = useCloseTreasurySession();
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
+  const [transferToMainSafe, setTransferToMainSafe] = useState(true);
+  const [transferAmount, setTransferAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const current = currentQuery.data?.session ?? null;
@@ -328,10 +330,19 @@ function SessionModal({
     setError(null);
     const amt = parseArabicNumber(amount);
     if (amt < 0 || Number.isNaN(amt)) return setError("أدخل الرصيد الفعلي عند الإغلاق.");
+    const tAmt = transferToMainSafe ? parseArabicNumber(transferAmount) : undefined;
+    if (transferToMainSafe && (tAmt == null || tAmt < 0 || Number.isNaN(tAmt))) {
+      return setError("أدخل مبلغ الترحيل بشكل صحيح.");
+    }
     try {
       await closeMutation.mutateAsync({
         id: current.id,
-        data: { actualClosingBalance: amt, notes: notes.trim() || null },
+        data: {
+          actualClosingBalance: amt,
+          notes: notes.trim() || null,
+          transferToMainSafe,
+          transferAmount: tAmt,
+        },
       });
       invalidateAll();
       onClose();
@@ -375,10 +386,44 @@ function SessionModal({
                 dir="ltr"
                 className={inputClass}
                 value={amount}
-                onChange={(e) => setAmount(toArabicNumerals(e.target.value))}
+                onChange={(e) => {
+                  const val = toArabicNumerals(e.target.value);
+                  setAmount(val);
+                  setTransferAmount(val); // Default transfer amount to actual closing balance
+                }}
                 data-testid="input-closing-balance"
               />
             </div>
+            
+            {account.type === "CASH" && (
+              <div className="bg-amber-50 rounded-xl p-4 border border-amber-100 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={transferToMainSafe}
+                    onChange={(e) => setTransferToMainSafe(e.target.checked)}
+                    className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+                  />
+                  <span className="text-sm font-bold text-amber-900">
+                    ترحيل الرصيد إلى الخزينة الرئيسية (تصفير الدرج)
+                  </span>
+                </label>
+                
+                {transferToMainSafe && (
+                  <div>
+                    <label className="block text-sm text-amber-800 mb-1">مبلغ الترحيل</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      dir="ltr"
+                      className="w-full px-3 py-2 rounded-lg border border-amber-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition"
+                      value={transferAmount}
+                      onChange={(e) => setTransferAmount(toArabicNumerals(e.target.value))}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">ملاحظات</label>
               <input

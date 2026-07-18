@@ -7,6 +7,8 @@ import {
   invoicePaymentsTable,
   salesReturnsTable,
   purchaseInvoicesTable,
+  purchaseReturnsTable,
+  salesReturnItemsTable,
   expensesTable,
   expenseCategoriesTable,
   salaryRecordsTable,
@@ -42,9 +44,17 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { toNum } from "../lib/money";
-function endOfDay(d: Date): Date {
-  const e = new Date(d);
-  e.setHours(23, 59, 59, 999);
+function getShiftStart(d: Date | string): Date {
+  const dt = new Date(d);
+  const str = dt.toISOString().slice(0, 10);
+  return new Date(`${str}T11:00:00`);
+}
+function getShiftEnd(d: Date | string): Date {
+  const dt = new Date(d);
+  const str = dt.toISOString().slice(0, 10);
+  const e = new Date(`${str}T11:00:00`);
+  e.setDate(e.getDate() + 1);
+  e.setMilliseconds(e.getMilliseconds() - 1);
   return e;
 }
 import { AnalyticsService } from "../lib/analytics-service";
@@ -70,8 +80,8 @@ router.get(
     const q = GetSalesSummaryReportQueryParams.parse(req.query);
 
     const conditions: SQL[] = [eq(invoicesTable.storeId, storeId)];
-    if (q.fromDate) conditions.push(gte(invoicesTable.createdAt, q.fromDate));
-    if (q.toDate) conditions.push(lte(invoicesTable.createdAt, endOfDay(q.toDate)));
+    if (q.fromDate) conditions.push(gte(invoicesTable.createdAt, getShiftStart(q.fromDate)));
+    if (q.toDate) conditions.push(lte(invoicesTable.createdAt, getShiftEnd(q.toDate)));
     if (q.customerId) conditions.push(eq(invoicesTable.customerId, q.customerId));
     if (q.paymentMethod) conditions.push(eq(invoicePaymentsTable.method, q.paymentMethod));
 
@@ -86,6 +96,8 @@ router.get(
           string | null
         >`group_concat(distinct ${invoicePaymentsTable.method})`,
         paymentStatus: invoicesTable.paymentStatus,
+        returnStatus: invoicesTable.returnStatus,
+        returnedAmount: sql<number>`CAST(coalesce((SELECT sum(cast(${salesReturnsTable.totalAmount} as REAL)) FROM ${salesReturnsTable} WHERE ${salesReturnsTable.invoiceId} = ${invoicesTable.id}), 0) AS REAL)`,
       })
       .from(invoicesTable)
       .leftJoin(invoicePaymentsTable, eq(invoicePaymentsTable.invoiceId, invoicesTable.id))
@@ -98,11 +110,14 @@ router.get(
         customersTable.name,
         invoicesTable.totalAmount,
         invoicesTable.paymentStatus,
+        invoicesTable.returnStatus,
       )
       .orderBy(desc(invoicesTable.createdAt));
 
     const total = rows.reduce((s, r) => s + toNum(r.total), 0);
-    res.json({ rows, count: rows.length, total });
+    const totalReturned = rows.reduce((s, r) => s + toNum(r.returnedAmount), 0);
+    const netTotal = total - totalReturned;
+    res.json({ rows, count: rows.length, total, totalReturned, netTotal });
   },
 );
 
@@ -117,15 +132,15 @@ router.get(
     const q = GetPurchasesSummaryReportQueryParams.parse(req.query);
 
     const conditions: SQL[] = [eq(purchaseInvoicesTable.storeId, storeId)];
-    if (q.fromDate) conditions.push(gte(purchaseInvoicesTable.invoiceDate, dateStr(q.fromDate)));
-    if (q.toDate) conditions.push(lte(purchaseInvoicesTable.invoiceDate, dateStr(q.toDate)));
+    if (q.fromDate) conditions.push(gte(purchaseInvoicesTable.createdAt, getShiftStart(q.fromDate)));
+    if (q.toDate) conditions.push(lte(purchaseInvoicesTable.createdAt, getShiftEnd(q.toDate)));
     if (q.supplierId) conditions.push(eq(purchaseInvoicesTable.supplierId, q.supplierId));
 
-    const rows = await db
+    const invoiceRows = await db
       .select({
         id: purchaseInvoicesTable.id,
         invoiceNumber: purchaseInvoicesTable.invoiceNumber,
-        date: purchaseInvoicesTable.invoiceDate,
+        date: purchaseInvoicesTable.createdAt,
         supplierName: suppliersTable.name,
         total: purchaseInvoicesTable.totalAmount,
         status: purchaseInvoicesTable.status,
@@ -133,7 +148,45 @@ router.get(
       .from(purchaseInvoicesTable)
       .leftJoin(suppliersTable, eq(suppliersTable.id, purchaseInvoicesTable.supplierId))
       .where(and(...conditions))
-      .orderBy(desc(purchaseInvoicesTable.invoiceDate));
+      .orderBy(desc(purchaseInvoicesTable.createdAt));
+
+    // Also get returns
+    const retConditions: SQL[] = [eq(purchaseReturnsTable.storeId, storeId)];
+    if (q.fromDate) retConditions.push(gte(purchaseReturnsTable.createdAt, getShiftStart(q.fromDate)));
+    if (q.toDate) retConditions.push(lte(purchaseReturnsTable.createdAt, getShiftEnd(q.toDate)));
+    
+    let returnQuery = db
+      .select({
+        id: purchaseReturnsTable.id,
+        invoiceNumber: purchaseReturnsTable.returnNumber,
+        date: purchaseReturnsTable.createdAt,
+        supplierName: suppliersTable.name,
+        total: purchaseReturnsTable.totalAmount,
+        status: sql<string>`'مرتجع'`,
+      })
+      .from(purchaseReturnsTable)
+      .leftJoin(purchaseInvoicesTable, eq(purchaseReturnsTable.purchaseId, purchaseInvoicesTable.id))
+      .leftJoin(suppliersTable, eq(suppliersTable.id, purchaseInvoicesTable.supplierId));
+
+    if (q.supplierId) {
+       retConditions.push(eq(purchaseInvoicesTable.supplierId, q.supplierId));
+    }
+    
+    const returnRows = await returnQuery.where(and(...retConditions)).orderBy(desc(purchaseReturnsTable.createdAt));
+
+    // Make returns negative
+    const formattedReturnRows = returnRows.map(r => ({
+      ...r,
+      date: typeof r.date === "string" ? r.date : (r.date as Date)?.toISOString() || "",
+      total: -toNum(r.total)
+    }));
+
+    const formattedInvoiceRows = invoiceRows.map(r => ({
+      ...r,
+      date: typeof r.date === "string" ? r.date : (r.date as Date)?.toISOString() || ""
+    }));
+
+    const rows = [...formattedInvoiceRows, ...formattedReturnRows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const total = rows.reduce((s, r) => s + toNum(r.total), 0);
     res.json({ rows, count: rows.length, total });
@@ -289,8 +342,8 @@ router.get(
     const q = GetTreasuryReportQueryParams.parse(req.query);
 
     const conditions: SQL[] = [eq(treasuryTransactionsTable.storeId, storeId)];
-    if (q.fromDate) conditions.push(gte(treasuryTransactionsTable.createdAt, q.fromDate));
-    if (q.toDate) conditions.push(lte(treasuryTransactionsTable.createdAt, endOfDay(q.toDate)));
+    if (q.fromDate) conditions.push(gte(treasuryTransactionsTable.createdAt, getShiftStart(q.fromDate)));
+    if (q.toDate) conditions.push(lte(treasuryTransactionsTable.createdAt, getShiftEnd(q.toDate)));
     if (q.accountId) conditions.push(eq(treasuryTransactionsTable.treasuryAccountId, q.accountId));
 
     const rows = await db
@@ -332,8 +385,8 @@ router.get(
     const q = GetExpenseReportQueryParams.parse(req.query);
 
     const conditions: SQL[] = [eq(expensesTable.storeId, storeId)];
-    if (q.fromDate) conditions.push(gte(expensesTable.expenseDate, dateStr(q.fromDate)));
-    if (q.toDate) conditions.push(lte(expensesTable.expenseDate, dateStr(q.toDate)));
+    if (q.fromDate) conditions.push(gte(expensesTable.expenseDate, dateStr(getShiftStart(q.fromDate))));
+    if (q.toDate) conditions.push(lte(expensesTable.expenseDate, dateStr(getShiftEnd(q.toDate))));
     if (q.categoryId) conditions.push(eq(expensesTable.categoryId, q.categoryId));
 
     const rows = await db
@@ -365,8 +418,8 @@ router.get(
     const q = GetTopProductsReportQueryParams.parse(req.query);
 
     const conditions: SQL[] = [eq(invoicesTable.storeId, storeId)];
-    if (q.fromDate) conditions.push(gte(invoicesTable.createdAt, q.fromDate));
-    if (q.toDate) conditions.push(lte(invoicesTable.createdAt, endOfDay(q.toDate)));
+    if (q.fromDate) conditions.push(gte(invoicesTable.createdAt, getShiftStart(q.fromDate)));
+    if (q.toDate) conditions.push(lte(invoicesTable.createdAt, getShiftEnd(q.toDate)));
 
     const rows = await db
       .select({
@@ -438,12 +491,12 @@ router.get(
     // Date conditions applied on the parent transaction's entryDate
     const txConditions: SQL[] = [eq(accountingTransactionsTable.storeId, storeId)];
     if (fromDateStr) {
-      const from = new Date(fromDateStr);
+      const from = getShiftStart(fromDateStr);
       if (!isNaN(from.getTime())) txConditions.push(gte(accountingTransactionsTable.entryDate, from));
     }
     if (toDateStr) {
-      const to = new Date(toDateStr);
-      if (!isNaN(to.getTime())) { to.setHours(23, 59, 59, 999); txConditions.push(lte(accountingTransactionsTable.entryDate, to)); }
+      const to = getShiftEnd(toDateStr);
+      if (!isNaN(to.getTime())) { txConditions.push(lte(accountingTransactionsTable.entryDate, to)); }
     }
 
     const rows = await db
@@ -602,12 +655,12 @@ router.get(
       eq(inventoryMovementsTable.storeId, storeId),
     ];
     if (fromDateStr) {
-      const from = new Date(fromDateStr);
+      const from = getShiftStart(fromDateStr);
       if (!isNaN(from.getTime())) movConditions.push(gte(inventoryMovementsTable.createdAt, from));
     }
     if (toDateStr) {
-      const to = new Date(toDateStr);
-      if (!isNaN(to.getTime())) { to.setHours(23, 59, 59, 999); movConditions.push(lte(inventoryMovementsTable.createdAt, to)); }
+      const to = getShiftEnd(toDateStr);
+      if (!isNaN(to.getTime())) { movConditions.push(lte(inventoryMovementsTable.createdAt, to)); }
     }
 
     const movements = await db
@@ -690,12 +743,12 @@ router.get(
       eq(customerTransactionsTable.storeId, storeId),
     ];
     if (fromDateStr) {
-      const from = new Date(fromDateStr);
+      const from = getShiftStart(fromDateStr);
       if (!isNaN(from.getTime())) txConditions.push(gte(customerTransactionsTable.createdAt, from));
     }
     if (toDateStr) {
-      const to = new Date(toDateStr);
-      if (!isNaN(to.getTime())) { to.setHours(23, 59, 59, 999); txConditions.push(lte(customerTransactionsTable.createdAt, to)); }
+      const to = getShiftEnd(toDateStr);
+      if (!isNaN(to.getTime())) { txConditions.push(lte(customerTransactionsTable.createdAt, to)); }
     }
 
     const txRows = await db
@@ -753,32 +806,74 @@ router.get(
 
     const conditions: SQL[] = [eq(invoicesTable.storeId, storeId)];
     if (fromDateStr) {
-      const from = new Date(fromDateStr);
+      const from = getShiftStart(fromDateStr);
       if (!isNaN(from.getTime())) conditions.push(gte(invoicesTable.createdAt, from));
     }
     if (toDateStr) {
-      const to = new Date(toDateStr);
-      if (!isNaN(to.getTime())) { to.setHours(23, 59, 59, 999); conditions.push(lte(invoicesTable.createdAt, to)); }
+      const to = getShiftEnd(toDateStr);
+      if (!isNaN(to.getTime())) { conditions.push(lte(invoicesTable.createdAt, to)); }
     }
 
-    const rows = await db
+    const salesRows = await db
       .select({
-        day: sql<string>`strftime('%Y-%m-%d', datetime(${invoicesTable.createdAt} / 1000, 'unixepoch'))`,
+        day: sql<string>`strftime('%Y-%m-%d', datetime((${invoicesTable.createdAt} / 1000) - 39600, 'unixepoch'))`,
         invoiceCount: sql<number>`count(distinct ${invoicesTable.id})`,
         totalRevenue: sql<number>`CAST(coalesce(sum(cast(${invoicesTable.totalAmount} as REAL)), 0) AS REAL)`,
         totalCost: sql<number>`CAST(coalesce(sum(cast(${invoicesTable.totalCost} as REAL)), 0) AS REAL)`,
-        avgSale: sql<number>`CAST(coalesce(avg(cast(${invoicesTable.totalAmount} as REAL)), 0) AS REAL)`,
       })
       .from(invoicesTable)
       .where(and(...conditions))
-      .groupBy(sql`strftime('%Y-%m-%d', datetime(${invoicesTable.createdAt} / 1000, 'unixepoch'))`)
-      .orderBy(asc(sql`strftime('%Y-%m-%d', datetime(${invoicesTable.createdAt} / 1000, 'unixepoch'))`));
+      .groupBy(sql`strftime('%Y-%m-%d', datetime((${invoicesTable.createdAt} / 1000) - 39600, 'unixepoch'))`);
 
-    const grandTotal = rows.reduce((s, r) => s + Number(r.totalRevenue ?? 0), 0);
-    const grandCost = rows.reduce((s, r) => s + Number(r.totalCost ?? 0), 0);
-    const grandProfit = grandTotal - grandCost;
+    const retConditions: SQL[] = [eq(salesReturnsTable.storeId, storeId)];
+    if (fromDateStr) {
+      const from = getShiftStart(fromDateStr);
+      if (!isNaN(from.getTime())) retConditions.push(gte(salesReturnsTable.createdAt, from));
+    }
+    if (toDateStr) {
+      const to = getShiftEnd(toDateStr);
+      if (!isNaN(to.getTime())) { retConditions.push(lte(salesReturnsTable.createdAt, to)); }
+    }
 
-    res.json({ rows, grandTotal, grandCost, grandProfit, dayCount: rows.length });
+    const retRows = await db
+      .select({
+        day: sql<string>`strftime('%Y-%m-%d', datetime((${salesReturnsTable.createdAt} / 1000) - 39600, 'unixepoch'))`,
+        totalReturned: sql<number>`CAST(coalesce(sum(cast(${salesReturnsTable.totalAmount} as REAL)), 0) AS REAL)`,
+        returnedCost: sql<number>`CAST(coalesce(sum(cast(${salesReturnsTable.totalCost} as REAL)), 0) AS REAL)`,
+      })
+      .from(salesReturnsTable)
+      .where(and(...retConditions))
+      .groupBy(sql`strftime('%Y-%m-%d', datetime((${salesReturnsTable.createdAt} / 1000) - 39600, 'unixepoch'))`);
+
+    const map = new Map<string, any>();
+    for (const r of salesRows) {
+      map.set(r.day, { ...r, totalReturned: 0, returnedCost: 0 });
+    }
+    for (const r of retRows) {
+      if (!map.has(r.day)) {
+        map.set(r.day, { day: r.day, invoiceCount: 0, totalRevenue: 0, totalCost: 0, totalReturned: 0, returnedCost: 0 });
+      }
+      const entry = map.get(r.day);
+      entry.totalReturned = r.totalReturned;
+      entry.returnedCost = r.returnedCost;
+    }
+
+    const rows = Array.from(map.values())
+      .map(r => {
+        const netRevenue = r.totalRevenue - r.totalReturned;
+        const netCost = r.totalCost - r.returnedCost;
+        const avgSale = r.invoiceCount > 0 ? r.totalRevenue / r.invoiceCount : 0;
+        return { ...r, netRevenue, netCost, avgSale };
+      })
+      .sort((a, b) => a.day.localeCompare(b.day));
+
+    const grandTotal = rows.reduce((s, r) => s + r.totalRevenue, 0);
+    const grandReturned = rows.reduce((s, r) => s + r.totalReturned, 0);
+    const grandNetTotal = grandTotal - grandReturned;
+    const grandCost = rows.reduce((s, r) => s + r.netCost, 0);
+    const grandProfit = grandNetTotal - grandCost;
+
+    res.json({ rows, grandTotal, grandReturned, grandNetTotal, grandCost, grandProfit, dayCount: rows.length });
   },
 );
 

@@ -176,6 +176,70 @@ router.patch("/suppliers/:id", requireAuth, requirePermission("suppliers.edit"),
   res.json(serializeSupplier(updated));
 });
 
+// POST /suppliers/:id/adjust
+router.post(
+  "/suppliers/:id/adjust",
+  requireAuth,
+  requirePermission("suppliers.edit"),
+  async (req, res) => {
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const { newBalance, notes } = req.body;
+
+    if (typeof newBalance !== "number") {
+      res.status(400).json({ error: "الرصيد الجديد غير صحيح" });
+      return;
+    }
+
+    const [existing] = await db
+      .select({ id: suppliersTable.id, currentBalance: suppliersTable.currentBalance })
+      .from(suppliersTable)
+      .where(and(eq(suppliersTable.id, String(req.params["id"])), eq(suppliersTable.storeId, storeId)))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "المورد غير موجود" });
+      return;
+    }
+
+    const diff = newBalance - toNum(existing.currentBalance);
+    if (diff === 0) {
+      res.json({ success: true });
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.insert(supplierTransactionsTable).values({
+        storeId,
+        supplierId: existing.id,
+        type: "ADJUSTMENT",
+        debit: diff < 0 ? money(Math.abs(diff)) : money(0),
+        credit: diff > 0 ? money(Math.abs(diff)) : money(0),
+        balanceAfter: money(newBalance),
+        description: notes || "تسوية رصيد يدوية",
+        createdBy: userId,
+      });
+
+      await tx
+        .update(suppliersTable)
+        .set({ currentBalance: money(newBalance) })
+        .where(eq(suppliersTable.id, existing.id));
+    });
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "supplier.adjusted",
+      entityType: "supplier",
+      entityId: existing.id,
+      newValue: { newBalance },
+      ipAddress: clientIp(req),
+    });
+
+    res.json({ success: true });
+  }
+);
+
 // DELETE /suppliers/:id — soft deactivate
 router.delete(
   "/suppliers/:id",

@@ -15,14 +15,16 @@ const router: IRouter = Router();
 
 function startOfToday(): Date {
   const d = new Date();
-  d.setHours(0, 0, 0, 0);
+  if (d.getHours() < 11) {
+    d.setDate(d.getDate() - 1);
+  }
+  d.setHours(11, 0, 0, 0);
   return d;
 }
 
 function daysAgo(n: number): Date {
-  const d = new Date();
+  const d = startOfToday();
   d.setDate(d.getDate() - n);
-  d.setHours(0, 0, 0, 0);
   return d;
 }
 
@@ -44,6 +46,7 @@ router.get(
     const salesAgg = await AnalyticsService.getSalesKPIs(storeId, today);
     const returnAgg = await AnalyticsService.getSalesReturnsKPIs(storeId, today);
     const purchAgg = await AnalyticsService.getPurchasesKPIs(storeId, today);
+    const purchRetAgg = await AnalyticsService.getPurchaseReturnsKPIs(storeId, today);
     const expAgg = await AnalyticsService.getExpensesKPIs(storeId, today);
     const treasuryBalance = await AnalyticsService.getTreasuryBalance(storeId);
     const customerDebts = await AnalyticsService.getCustomerDebts(storeId);
@@ -86,11 +89,13 @@ router.get(
     const netSales = (salesAgg.revenue ?? 0) - (returnAgg.total ?? 0);
     const cogs = (salesAgg.cost ?? 0) - (returnAgg.cost ?? 0);
     const todayProfit = netSales - cogs;
+    
+    const netPurchases = (purchAgg.total ?? 0) - (purchRetAgg.total ?? 0);
 
     res.json({
       todaySales: netSales,
       todayProfit: todayProfit,
-      todayPurchases: purchAgg.total,
+      todayPurchases: netPurchases,
       todayExpenses: expAgg.total,
       treasuryBalance: treasuryBalance,
       lowStockCount: lowStockRows.length,

@@ -11,6 +11,7 @@ import { printBarcode, labelPageSize } from "@/lib/printer-settings";
 
 type LabelSize =
   | "47x25"
+  | "40x20"
   | "20x10"
   | "30x20"
   | "40x25"
@@ -21,9 +22,9 @@ type LabelSize =
   | "60x40"
   | "100x50";
 
-const DEFAULT_LABEL_W_MM = 47;
-const DEFAULT_LABEL_H_MM = 25;
-const DEFAULT_LABEL_SIZE: LabelSize = "47x25";
+const DEFAULT_LABEL_W_MM = 40;
+const DEFAULT_LABEL_H_MM = 20;
+const DEFAULT_LABEL_SIZE: LabelSize = "40x20";
 const MAX_COPIES = 100;
 
 /**
@@ -31,15 +32,16 @@ const MAX_COPIES = 100;
  * Format: "WIDTHxHEIGHT" in mm (landscape orientation on the roll).
  */
 const LABEL_SIZES: { value: LabelSize; label: string; note?: string }[] = [
-  { value: "47x25", label: "47×25 مم",  note: "افتراضي" },
-  { value: "20x10", label: "20×10 مم",  note: "مجوهرات" },
-  { value: "30x20", label: "30×20 مم",  note: "أقراص / بطاقات صغيرة" },
-  { value: "40x25", label: "40×25 مم",  note: "أحذية / ملابس" },
-  { value: "40x30", label: "40×30 مم",  note: "بطاقة قياسية" },
-  { value: "50x30", label: "50×30 مم",  note: "إلكترونيات" },
-  { value: "57x32", label: "57×32 مم",  note: "POS حراري" },
-  { value: "58x40", label: "58×40 مم",  note: "حراري عريض" },
-  { value: "60x40", label: "60×40 مم",  note: "صيدلية / أغذية" },
+  { value: "40x20", label: "40×20 مم", note: "افتراضي" },
+  { value: "47x25", label: "47×25 مم", note: "شائع" },
+  { value: "20x10", label: "20×10 مم", note: "مجوهرات" },
+  { value: "30x20", label: "30×20 مم", note: "أقراص / بطاقات صغيرة" },
+  { value: "40x25", label: "40×25 مم", note: "أحذية / ملابس" },
+  { value: "40x30", label: "40×30 مم", note: "بطاقة قياسية" },
+  { value: "50x30", label: "50×30 مم", note: "إلكترونيات" },
+  { value: "57x32", label: "57×32 مم", note: "POS حراري" },
+  { value: "58x40", label: "58×40 مم", note: "حراري عريض" },
+  { value: "60x40", label: "60×40 مم", note: "صيدلية / أغذية" },
   { value: "100x50", label: "100×50 مم", note: "علبة / شحن" },
 ];
 
@@ -47,6 +49,7 @@ export interface BarcodeLabelVariant {
   id: string;
   sku: string;
   barcode: string;
+  shortId?: string | null;
   colorName?: string | null;
   sizeName?: string | null;
   sellingPrice?: string | null;
@@ -93,12 +96,10 @@ const MM_TO_PX = 3.779528;
 
 function BarcodeDisplay({
   value,
-  heightMm = 10,
+  dims,
 }: {
   value: string;
-  widthPx?: number;
-  heightMm?: number;
-  forPrint?: boolean;
+  dims: LabelDims;
 }) {
   const ref = useRef<SVGSVGElement>(null);
   useEffect(() => {
@@ -106,52 +107,133 @@ function BarcodeDisplay({
     try {
       const barcodeValue = value || "000000";
       const isEAN13 = /^\d{13}$/.test(barcodeValue);
+
+      const targetHeightPx = dims.hMm * 0.65 * 3.7795; // 65% of label height natively
+
+      // Render barcode using thick, native widths for fast scanning
       JsBarcode(ref.current, barcodeValue, {
         format: isEAN13 ? "EAN13" : "CODE128",
-        width: 1.5,
-        height: Math.round(heightMm * MM_TO_PX),
+        width: dims.wMm <= 20 ? 1.5 : dims.wMm <= 30 ? 2.0 : 2.5, // Make bars THICK natively!
+        height: targetHeightPx, 
+        margin: 0,
         displayValue: false,
-        margin: 10,
         background: "transparent",
+        lineColor: "#000000",
       });
-      // Do NOT remove width/height attributes and do NOT set preserveAspectRatio.
-      // Leaving the attributes intact lets the SVG render at its natural intrinsic
-      // size (determined by the bar-width parameter), so modules stay at 0.40mm—
-      // well within the reliable scanning range.
+
+      // Let the browser proportionally scale it down if it's too big, but never stretch it!
+      ref.current.removeAttribute("style");
+      ref.current.setAttribute("preserveAspectRatio", "xMidYMid meet");
     } catch {
-      // invalid barcode — silent fail
+      // silent fail
     }
-  }, [value, heightMm]);
-  /*
-   * width:auto — render at natural intrinsic SVG width (no horizontal stretch).
-   * max-width:100% — scale DOWN if the SVG is wider than the container (tiny labels).
-   * height:auto — scale proportionally to the width.
-   * margin:0 auto — centre the barcode on the label.
-   * shapeRendering:crispEdges — disables anti-aliasing so bar edges are pure
-   *   black/white, critical for scanner read reliability.
-   */
+  }, [value, dims]);
+
+  return <svg ref={ref} style={{ maxWidth: "100%", maxHeight: "100%", display: "block" }} />;
+}
+
+function LabelContent({
+  productName,
+  storeName,
+  variant,
+  dims,
+  currency,
+}: {
+  productName: string;
+  storeName?: string | null;
+  variant: BarcodeLabelVariant;
+  dims: LabelDims;
+  currency: string;
+}) {
+  const price = variant.sellingPrice;
+  let formattedPrice = null;
+  if (price) {
+    const num = Number(price);
+    formattedPrice = `${parseFloat(num.toFixed(2))} ${currency}`;
+  }
+
+  let numericVal = 0;
+  if (variant.shortId) {
+    const parsed = parseInt(String(variant.shortId).replace(/\D/g, ""), 10);
+    if (!isNaN(parsed)) numericVal = parsed;
+  }
+  const paddedId = String(numericVal).padStart(5, "0");
+
+  // Dynamically scale fonts based on standard 40x20 size
+  const scale = Math.min(dims.wMm / 40, dims.hMm / 20);
+
   return (
-    <svg
-      ref={ref}
+    <div
       style={{
-        display: "block",
-        width: "auto",
-        maxWidth: "100%",
-        height: "auto",
-        margin: "0 auto",
-        shapeRendering: "crispEdges",
+        width: `${dims.wMm}mm`,
+        height: `${dims.hMm}mm`,
+        padding: "1.5mm",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        alignItems: "stretch",
+        overflow: "hidden",
+        backgroundColor: "white",
+        color: "black",
+        fontFamily: "system-ui, -apple-system, sans-serif",
       }}
-    />
+    >
+      <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: `${0.5 * scale}mm` }}>
+        {storeName && (
+          <div
+            style={{
+              fontSize: `${11 * scale}pt`,
+              fontWeight: "900",
+              lineHeight: 1,
+              width: "100%",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {storeName}
+          </div>
+        )}
+
+        <div
+          style={{
+            fontSize: `${10 * scale}pt`,
+            fontWeight: "700",
+            lineHeight: 1.1,
+            width: "100%",
+            maxHeight: "2.4em", // max 2 lines
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            wordBreak: "break-word",
+          }}
+        >
+          {productName}
+        </div>
+      </div>
+
+      <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden", margin: `${0.5 * scale}mm 0`, width: "100%" }}>
+        <BarcodeDisplay value={variant.barcode} dims={dims} />
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", width: "100%", direction: "ltr" }}>
+        <div style={{ fontSize: `${7 * scale}pt`, fontWeight: "800", lineHeight: 0.9, fontFamily: "monospace" }}>
+          {paddedId}
+        </div>
+        {formattedPrice && (
+          <div style={{ fontSize: `${8 * scale}pt`, fontWeight: "900", lineHeight: 0.9, direction: "rtl" }}>
+            {formattedPrice}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
 // ── Screen Preview Label ──────────────────────────────────────────────────────
 
-/**
- * Renders a scaled screen preview of the label at 2× its physical mm size.
- * Only shows: Product Name | Barcode SVG | Barcode Number | Price.
- * Variations (size/color) are intentionally excluded.
- */
 function LabelPreview({
   productName,
   storeName,
@@ -168,12 +250,6 @@ function LabelPreview({
   const previewScale = 2;
   const previewW = dims.wMm * previewScale;
   const previewH = dims.hMm * previewScale;
-  const price = variant.sellingPrice
-    ? `${Number(variant.sellingPrice).toFixed(2)} ${currency}`
-    : null;
-
-  const isSmall = dims.wMm <= 30;
-  const nameFontSize = `${Math.max(6, Math.min(16, Math.round(dims.wMm * 0.18)))}pt`;
 
   return (
     <div
@@ -181,73 +257,29 @@ function LabelPreview({
         width: previewW,
         height: previewH,
         border: "1px solid #e2e8f0",
-        borderRadius: 4,
-        padding: isSmall ? "3px 4px" : "6px 8px",
+        background: "#f1f5f9",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "space-between",
-        background: "white",
-        boxSizing: "border-box",
+        justifyContent: "center",
         overflow: "hidden",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
         flexShrink: 0,
       }}
     >
-      {storeName && (
-        <div
-          style={{
-            fontSize: isSmall ? 6 : 8,
-            textAlign: "center",
-            lineHeight: 1.1,
-            width: "100%",
-            overflow: "hidden",
-            opacity: 0.65,
-          }}
-        >
-          {storeName}
-        </div>
-      )}
-      <div
-        style={{
-          fontSize: nameFontSize,
-          fontWeight: "bold",
-          textAlign: "center",
-          lineHeight: 1.2,
-          width: "100%",
-          overflow: "hidden",
-          maxHeight: "2.4em",
-        }}
-      >
-        {productName}
+      <div style={{ transform: `scale(${previewScale})`, transformOrigin: "top left", width: `${dims.wMm}mm`, height: `${dims.hMm}mm` }}>
+        <LabelContent
+          productName={productName}
+          storeName={storeName}
+          variant={variant}
+          dims={dims}
+          currency={currency}
+        />
       </div>
-
-      {/*
-       * BarcodeDisplay renders at its natural intrinsic size (no stretching).
-       * max-width:100% inside BarcodeDisplay prevents overflow on tiny previews.
-       * The outer container's space-between distributes the remaining gap evenly.
-       */}
-      <BarcodeDisplay value={variant.barcode} heightMm={Math.max(4, dims.hMm * 0.35)} />
-
-      <div style={{ fontSize: isSmall ? 6 : 7, fontFamily: "monospace", textAlign: "center", letterSpacing: 0.5 }}>
-        {variant.barcode}
-      </div>
-
-      {price && (
-        <div style={{ fontSize: isSmall ? 8 : 10, fontWeight: "bold", textAlign: "center" }}>
-          {price}
-        </div>
-      )}
     </div>
   );
 }
 
 // ── Printable Label (injected into DOM for print portal) ──────────────────────
 
-/**
- * Renders a single label at exact physical mm dimensions.
- * Only contains: Product Name | Barcode SVG | Barcode Number | Price.
- */
 function PrintableLabel({
   productName,
   storeName,
@@ -261,106 +293,15 @@ function PrintableLabel({
   dims: LabelDims;
   currency: string;
 }) {
-  const price = variant.sellingPrice
-    ? `${Number(variant.sellingPrice).toFixed(2)} ${currency}`
-    : null;
-  const isSmall = dims.wMm <= 30;
-  const isTiny  = dims.wMm <= 20;
-
-  // Product name font scales with label width: 0.18pt per mm, clamped to [6pt, 16pt].
-  const nameFontSize = `${Math.max(6, Math.min(16, Math.round(dims.wMm * 0.18)))}pt`;
-
-  const svgRef = useRef<SVGSVGElement>(null);
-
-  useEffect(() => {
-    if (!svgRef.current) return;
-    try {
-      const barcodeValue = variant.barcode || "000000";
-      const isEAN13 = /^\d{13}$/.test(barcodeValue);
-      JsBarcode(svgRef.current, barcodeValue, {
-        format: isEAN13 ? "EAN13" : "CODE128",
-        /*
-         * Bar-width per label size — gives physical module widths of:
-         *   <= 20mm label: 0.8px × 0.264mm/px = 0.21mm  (tight but ISO-valid min 0.19mm)
-         *   <= 30mm label: 1.0px × 0.264mm/px = 0.26mm  (good)
-         *   >  30mm label: 2.0px × 0.264mm/px = 0.53mm  (comfortable, well inside 1.0mm max)
-         *
-         * These are the NATURAL sizes of the SVG — NOT stretched.
-         * The SVG is rendered at its intrinsic width; CSS max-width:100% only
-         * ever scales it DOWN (for narrow labels), never UP.
-         */
-        width: isTiny ? 0.8 : isSmall ? 1.0 : 2.0,
-        height: Math.max(10, dims.hMm * 0.35 * MM_TO_PX),
-        displayValue: false,
-        margin: 10,
-        background: "transparent",
-      });
-      /*
-       * IMPORTANT: Do NOT remove width/height attributes and do NOT set
-       * preserveAspectRatio="none". Keeping JsBarcode's natural dimensions
-       * means the SVG renders at its intrinsic pixel size, which CSS then
-       * maps to physical mm via the 96dpi reference (1px = 0.264mm).
-       * This gives correct, stable bar widths without any horizontal stretching.
-       */
-    } catch {
-      // ignore invalid barcode
-    }
-  }, [variant.barcode, dims.wMm, dims.hMm, isTiny, isSmall]);
-
   return (
-    <div
-      className="barcode-label"
-      style={{
-        width: `${dims.wMm}mm`,
-        height: `${dims.hMm}mm`,
-        padding: isTiny ? "0.8mm 1mm" : isSmall ? "1mm 1.5mm" : "1.5mm 2mm",
-      }}
-    >
-      {storeName && (
-        <div
-          className="label-store-name"
-          style={{ fontSize: isTiny ? "4pt" : isSmall ? "5pt" : "6pt" }}
-        >
-          {storeName}
-        </div>
-      )}
-
-      <div
-        className="label-product-name"
-        style={{ fontSize: nameFontSize }}
-      >
-        {productName}
-      </div>
-
-      {/*
-       * The SVG is a direct flex child of .barcode-label (no wrapper div).
-       * It renders at its natural intrinsic size and is centred by margin:0 auto.
-       * space-between on the parent distributes the remaining vertical gap
-       * evenly between the text items and the barcode — same as before, but
-       * now with correct, scanner-readable bar widths.
-       */}
-      <svg
-        ref={svgRef}
-        className="label-barcode-svg"
-        style={{
-          display: "block",
-          width: "auto",
-          maxWidth: "100%",
-          height: "auto",
-          margin: "0 auto",
-          shapeRendering: "crispEdges",
-        }}
+    <div className="barcode-label" style={{ backgroundColor: "white", width: `${dims.wMm}mm`, height: `${dims.hMm}mm` }}>
+      <LabelContent
+        productName={productName}
+        storeName={storeName}
+        variant={variant}
+        dims={dims}
+        currency={currency}
       />
-
-      <div className="label-sku" style={{ fontSize: isTiny ? "5pt" : isSmall ? "6pt" : "6.5pt" }}>
-        {variant.barcode}
-      </div>
-
-      {price && (
-        <div className="label-price" style={{ fontSize: isTiny ? "6pt" : isSmall ? "7pt" : "9pt" }}>
-          {price}
-        </div>
-      )}
     </div>
   );
 }
@@ -463,21 +404,19 @@ export function BarcodeLabelPrintModal({
           <div className="flex gap-2 mb-3">
             <button
               onClick={() => setSizeMode("preset")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border-2 transition ${
-                sizeMode === "preset"
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border-2 transition ${sizeMode === "preset"
                   ? "border-amber-500 bg-amber-50 text-amber-700"
                   : "border-slate-200 text-slate-600 hover:border-slate-300"
-              }`}
+                }`}
             >
               <AlignJustify size={15} /> قياسي
             </button>
             <button
               onClick={() => setSizeMode("custom")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border-2 transition ${
-                sizeMode === "custom"
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border-2 transition ${sizeMode === "custom"
                   ? "border-amber-500 bg-amber-50 text-amber-700"
                   : "border-slate-200 text-slate-600 hover:border-slate-300"
-              }`}
+                }`}
             >
               <Settings2 size={15} /> مخصص
             </button>
@@ -489,11 +428,10 @@ export function BarcodeLabelPrintModal({
                 <button
                   key={s.value}
                   onClick={() => setLabelSize(s.value)}
-                  className={`p-2 rounded-xl border-2 text-right transition ${
-                    labelSize === s.value
+                  className={`p-2 rounded-xl border-2 text-right transition ${labelSize === s.value
                       ? "border-amber-500 bg-amber-50 text-amber-700"
                       : "border-slate-200 text-slate-600 hover:border-slate-300"
-                  }`}
+                    }`}
                 >
                   <div className="text-[11px] font-black">{s.label}</div>
                   {s.note && (

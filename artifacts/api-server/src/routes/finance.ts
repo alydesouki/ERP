@@ -55,7 +55,7 @@ function dateStr(d: Date): string {
 router.get(
   "/finance/expense-categories",
   requireAuth,
-  requirePermission("finance.view"),
+  requireAnyPermission(["finance.view", "expenses.create"]),
   async (req, res) => {
     const parsed = ListExpenseCategoriesQueryParams.safeParse(req.query);
     if (!parsed.success) {
@@ -207,7 +207,11 @@ router.delete(
 
 // ── Expenses ────────────────────────────────────────────────────────────────
 
-router.get("/finance/expenses", requireAuth, requirePermission("finance.view"), async (req, res) => {
+router.get(
+  "/finance/expenses",
+  requireAuth,
+  requireAnyPermission(["finance.view", "expenses.create"]),
+  async (req, res) => {
   const parsed = ListExpensesQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" });

@@ -85,9 +85,9 @@ const NAV_GROUPS: NavGroupDef[] = [
     label: "المالية",
     icon: <Landmark size={20} />,
     items: [
-      { path: "/treasury", label: "الخزينة", icon: <Wallet size={18} />, permission: "treasury.view" },
-      { path: "/finance", label: "الشؤون المالية", icon: <Landmark size={18} />, anyOf: ["finance.view", "expenses.create"] },
-      { path: "/associations", label: "حسابات الجمعيات", icon: <HandCoins size={18} />, permission: "associations.view" },
+      { path: "/treasury", label: "الخزينة", icon: <Wallet size={18} />, anyOf: ["treasury.view", "treasury.session", "treasury.manage"] },
+      { path: "/finance", label: "المالية والمصروفات", icon: <Landmark size={18} />, anyOf: ["finance.view", "expenses.create", "salaries.create", "advances.create", "equity.create"] },
+      { path: "/associations", label: "إدارة الجمعيات", icon: <HandCoins size={18} />, anyOf: ["associations.view", "associations.transactions", "associations.create", "associations.edit"] },
     ],
   },
   {

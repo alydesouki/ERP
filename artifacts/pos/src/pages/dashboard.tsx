@@ -99,6 +99,7 @@ export function DashboardPage() {
       value: money(k?.todayProfit),
       icon: <TrendingUp size={22} className="text-green-600" />,
       bg: "bg-green-100 border-green-200",
+      requiresPermission: "dashboard.view_profits",
     },
     {
       label: "مشتريات اليوم",
@@ -137,30 +138,34 @@ export function DashboardPage() {
       bg: "bg-slate-100 border-slate-200",
     },
     {
-      label: "جمعيات نشطة",
+      label: "إجمالي الجمعيات",
       value: String(k?.activeAssociationsCount ?? 0),
       icon: <UserCheck size={22} className="text-teal-600" />,
       bg: "bg-teal-100 border-teal-200",
+      requiresPermission: "dashboard.view_associations",
     },
     {
-      label: "إجمالي مسحوب للجمعيات",
+      label: "إجمالي سحوبات الجمعيات",
       value: money(k?.totalAssociationsWithdrawn),
       icon: <HandCoins size={22} className="text-rose-500" />,
       bg: "bg-rose-50 border-rose-200",
+      requiresPermission: "dashboard.view_associations",
     },
     {
-      label: "إجمالي عائد من الجمعيات",
+      label: "إجمالي دفعات الجمعيات",
       value: money(k?.totalAssociationsReturned),
       icon: <HandCoins size={22} className="text-emerald-500" />,
       bg: "bg-emerald-50 border-emerald-200",
+      requiresPermission: "dashboard.view_associations",
     },
     {
-      label: "رصيد الجمعيات المستحق",
+      label: "صافي مديونية الجمعيات",
       value: money(k?.totalAssociationsBalance),
       icon: <Users size={22} className="text-amber-600" />,
       bg: "bg-amber-50 border-amber-200",
+      requiresPermission: "dashboard.view_associations",
     },
-  ];
+  ].filter((c) => !c.requiresPermission || hasPermission(c.requiresPermission));
 
   const paymentData =
     charts?.salesByPaymentMethod.map((d) => ({

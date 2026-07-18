@@ -22,9 +22,22 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     module: "dashboard",
     labelAr: "لوحة التحكم",
     permissions: [
-      { key: "dashboard.view", labelAr: "عرض لوحة التحكم" },
-      { key: "dashboard.view_sales", labelAr: "عرض مؤشرات المبيعات" },
-      { key: "dashboard.view_stock", labelAr: "عرض مؤشرات المخزون" },
+      { key: "dashboard.view", labelAr: "عرض لوحة المعلومات الأساسية" },
+      { key: "dashboard.view_sales", labelAr: "عرض مبيعات اليوم" },
+      { key: "dashboard.view_profits", labelAr: "عرض أرباح اليوم" },
+      { key: "dashboard.view_stock", labelAr: "عرض المخزون" },
+      { key: "dashboard.view_associations", labelAr: "عرض الجمعيات" },
+    ],
+  },
+  {
+    module: "associations",
+    labelAr: "الجمعيات",
+    permissions: [
+      { key: "associations.view", labelAr: "عرض الجمعيات" },
+      { key: "associations.create", labelAr: "إضافة جمعية" },
+      { key: "associations.edit", labelAr: "تعديل الجمعيات" },
+      { key: "associations.transactions", labelAr: "دفع وسحب الجمعيات" },
+      { key: "associations.report", labelAr: "تقارير الجمعيات" },
     ],
   },
   {

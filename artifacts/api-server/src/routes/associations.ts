@@ -96,7 +96,7 @@ async function computeSummary(storeId: string, associationId?: string) {
 router.get(
   "/associations",
   requireAuth,
-  requirePermission("associations.view"),
+  requireAnyPermission(["associations.view", "associations.create", "associations.edit", "associations.transactions", "associations.report"]),
   async (req, res) => {
     const storeId = req.auth!.storeId;
     const status = req.query["status"] as string | undefined;
@@ -284,6 +284,65 @@ router.put(
       balance: s.totalWithdrawals - s.totalReturns,
     });
   },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /associations/:id — delete an association (only if no transactions exist)
+// ─────────────────────────────────────────────────────────────────────────────
+router.delete(
+  "/associations/:id",
+  requireAuth,
+  requirePermission("associations.edit"),
+  async (req, res) => {
+    const storeId = req.auth!.storeId;
+    const userId = req.auth!.userId;
+    const id = String(req.params.id);
+
+    // 1. Check if it exists
+    const [existing] = await db
+      .select()
+      .from(associationsTable)
+      .where(and(eq(associationsTable.id, id), eq(associationsTable.storeId, storeId)))
+      .limit(1);
+    
+    if (!existing) {
+      res.status(404).json({ error: "الجمعية غير موجودة" });
+      return;
+    }
+
+    // 2. Prevent deletion if there are any transactions (even reversed ones)
+    const [txCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(associationTransactionsTable)
+      .where(
+        and(
+          eq(associationTransactionsTable.associationId, id),
+          eq(associationTransactionsTable.storeId, storeId)
+        )
+      );
+
+    if (txCount && Number(txCount.count) > 0) {
+      res.status(400).json({ error: "لا يمكن حذف الجمعية لوجود معاملات مالية مرتبطة بها. يرجى إغلاقها بدلاً من الحذف." });
+      return;
+    }
+
+    // 3. Delete the association
+    await db
+      .delete(associationsTable)
+      .where(and(eq(associationsTable.id, id), eq(associationsTable.storeId, storeId)));
+
+    await writeAuditLog({
+      storeId,
+      userId,
+      action: "DELETE",
+      entityType: "association",
+      entityId: id,
+      oldValue: existing,
+      ipAddress: clientIp(req),
+    });
+
+    res.json({ success: true, message: "تم حذف الجمعية بنجاح" });
+  }
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

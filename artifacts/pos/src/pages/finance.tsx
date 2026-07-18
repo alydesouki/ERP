@@ -86,10 +86,28 @@ export function FinancePage() {
   const canManage = hasPermission("finance.manage") || hasPermission("expenses.create");
   const canViewFinance = hasPermission("finance.view");
   const canCreateExpense = hasPermission("expenses.create");
-  
-  const availableTabs = TABS.filter(t => t.key === "expenses" ? canViewFinance || canCreateExpense : canViewFinance);
+  const canCreateSalaries = hasPermission("salaries.create");
+  const canCreateAdvances = hasPermission("advances.create");
+  const canCreateEquity = hasPermission("equity.create");
 
-  const [tab, setTab] = useState<TabKey>("expenses");
+  const availableTabs = TABS.filter(t => {
+    if (t.key === "expenses" || t.key === "categories") return canViewFinance || canCreateExpense;
+    if (t.key === "salaries") return canViewFinance || canCreateSalaries;
+    if (t.key === "advances") return canViewFinance || canCreateAdvances;
+    if (t.key === "equity") return canViewFinance || canCreateEquity;
+    if (t.key === "employees") return canViewFinance || canCreateSalaries || canCreateAdvances;
+    return false;
+  });
+
+  const [tab, setTab] = useState<TabKey>(availableTabs.length > 0 ? availableTabs[0].key : "expenses");
+
+  if (availableTabs.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8 text-slate-400 text-sm">
+        ليس لديك صلاحية الوصول إلى هذه الصفحة.
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-auto p-6 lg:p-8">
@@ -471,11 +489,13 @@ function ExpensesTab({ canManage }: { canManage: boolean }) {
     }
   }
 
+  const canCreate = canManage || hasPermission("expenses.create");
+
   return (
     <Card>
       <SectionHead
         title="المصروفات"
-        action={canManage ? <AddButton onClick={openAdd} label="مصروف جديد" /> : undefined}
+        action={canCreate ? <AddButton onClick={openAdd} label="مصروف جديد" /> : undefined}
       />
       {listQuery.isLoading ? (
         <p className="text-slate-400 text-center py-12">جارٍ التحميل...</p>
